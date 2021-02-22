@@ -11,20 +11,20 @@ bool motorDirection = false;
 
 //совпадает ли текущее направление вращения мотора с установленным
 bool motorIsDirectionRight() {
-	return !motorDirection == !(PORTD & (1 << PORTD7)); //convert to bool
+	return !motorDirection == !(PORTB & (1 << PORTB1)); //convert to bool
 }
 
 void motorSetDirection() {
 	if (motorDirection) {
-		PORTD |= (1 << PORTD7);
+		PORTB |= (1 << PORTB1);
 	} else {
-		PORTD &= ~(1 << PORTD7);
+		PORTB &= ~(1 << PORTB1);
 	}
 }
 
 void motorInit() {
 	//PD5 is now an output
-	DDRD |= (1 << DDD5) | (1 << DDD7);
+	DDRB |= (1 << DDB2) | (1 << DDB1);
 
 	//set none-inverting mode and fast PWM Mode
 	TCCR1A |= (1 << WGM11) | (1 << WGM10);

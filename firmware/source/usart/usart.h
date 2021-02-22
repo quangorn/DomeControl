@@ -5,10 +5,8 @@
 
 void usartInit ();
 
-uint8_t usartReceiveByte();
-
-void usartTransmitByte(uint8_t data);
-
-void usartTransmitString(char* str);
+void usartPrint(const char* str);
+void usartPrintln(const char* str);
+const char* usartGetReceivedCommand();
 
 #endif /* UART_H_ */

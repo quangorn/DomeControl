@@ -1,8 +1,6 @@
-
-#include "definitions.h"
 #include "motor/motor.h"
 #include "usart/usart.h"
-
+#include "common/utils.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
@@ -19,8 +17,6 @@ void ledToggle() {
 	PORTB ^= 1 << PORTB5;
 }
 
-char buf[256];
-
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
 int main (void) {
@@ -30,36 +26,44 @@ int main (void) {
 	// PD2 and PD3 are buttons with pull up
 	PORTD |= (1 << PORTD2) | (1 << PORTD3);
 
-	//motorInit();
-	//usartInit ();
+	motorInit();
+	usartInit();
 
-	//sei();
+	sei();
 
-	//uint8_t lastButtonsState = 0;
+	uint8_t lastButtonsState = 0;
 	while (1) {
-		_delay_ms(1000);
-		ledToggle();
+		//TODO: убрать delay, чтобы не пропустить команду по usart
+		_delay_ms(40);
+		//ledToggle();
 
-//		uint8_t buttonsState = PIND & ((1 << PIND2) | (1 << PIND3));
-//		if (buttonsState != lastButtonsState) {
-//			if (!(PIND & (1 << PIND2))) {
-//				motorToggle(true);
-//			} else if (!(PIND & (1 << PIND3))) {
-//				motorToggle(false);
-//			}
-//			lastButtonsState = buttonsState;
-//		}
-//
-//		motorProceed();
+		const char* cmd = usartGetReceivedCommand();
+		if (cmd) {
+			if (checkCommand("Forward", cmd)) {
+				motorStart(true);
+				usartPrintln("Forward start!");
+			} else if (checkCommand("Reverse", cmd)) {
+				motorStart(false);
+				usartPrintln("Reverse start!");
+			} else {
+				usartPrint("Unrecognized command: ");
+				usartPrint(cmd);
+			}
+		}
+
+		uint8_t buttonsState = PIND & ((1 << PIND2) | (1 << PIND3));
+		if (buttonsState != lastButtonsState) {
+			if (!(PIND & (1 << PIND2))) {
+				motorToggle(true);
+				usartPrintln("Forward!");
+			} else if (!(PIND & (1 << PIND3))) {
+				motorToggle(false);
+				usartPrintln("Reverse!");
+			}
+			lastButtonsState = buttonsState;
+		}
+
+		motorProceed();
 	}
 }
 #pragma clang diagnostic pop
-
-//ISR (USART_RX_vect) {
-	//int8_t received = usartReceiveByte();
-	//if (received == 'a') {
-	//toggleLED();
-	//}
-	//usartTransmitByte(received);
-//}
-
