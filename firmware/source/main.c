@@ -1,4 +1,5 @@
 #include "buttons/buttons.h"
+#include "encoder/encoder.h"
 #include "led/led.h"
 #include "motor/motor.h"
 #include "usart/usart.h"
@@ -6,17 +7,24 @@
 #include "common/definitions.h"
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
 int main (void) {
-	ledInit();
+
+	char buf[64];
+
 	buttonsInit();
+	encoderInit();
+	ledInit();
 	motorInit();
 	usartInit();
 
 	sei();
 
+	int16_t lastEncoderValue = 0;
 	while (1) {
 		//TODO: убрать delay, чтобы не пропустить команду по usart
 		_delay_ms(40);
@@ -40,16 +48,25 @@ int main (void) {
 		}
 
 		if (buttonsIsForwardPressed()) {
-			motorToggle(true);
+			motorToggle(DIRECTION_FORWARD);
 #ifdef DEBUG
 			usartPrintln("Forward!");
 #endif
 		} else if (buttonsIsReversePressed()) {
-			motorToggle(false);
+			motorToggle(DIRECTION_REVERSE);
 #ifdef DEBUG
 			usartPrintln("Reverse!");
 #endif
 		}
+
+#ifdef DEBUG
+		int16_t encoderValue = encoderGetValue();
+		if (encoderValue != lastEncoderValue) {
+			lastEncoderValue = encoderValue;
+			sprintf(buf, "Encoder value: %" PRId16, encoderValue);
+			usartPrintln(buf);
+		}
+#endif
 
 		motorProceed();
 	}

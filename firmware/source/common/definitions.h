@@ -1,6 +1,8 @@
 #ifndef DEFINITIONS_H_
 #define DEFINITIONS_H_
 
+#include <stdbool.h>
+
 #define USART_BAUD_RATE 115200
 
 #define MAX_COMMAND_LENGTH 64
@@ -9,10 +11,12 @@
 
 #define END_COMMAND_CHARACTER '#'
 
+#define DIRECTION_FORWARD   false
+#define DIRECTION_REVERSE   true
 
 ///IO Ports
 #define MOTOR_STEP_PORT         B
-#define MOTOR_STEP_PIN          2
+#define MOTOR_STEP_PIN          2 //timer1 PWM output OC1B
 #define MOTOR_DIR_PORT          B
 #define MOTOR_DIR_PIN           1
 
@@ -20,6 +24,9 @@
 #define BUTTON_FORWARD_PIN      3
 #define BUTTON_REVERSE_PORT     D
 #define BUTTON_REVERSE_PIN      4
+
+#define ENCODER_PORT            D
+#define ENCODER_PIN             2 //external interrupt INT0
 
 #define LED_PORT                B
 #define LED_PIN                 5

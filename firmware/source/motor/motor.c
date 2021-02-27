@@ -1,6 +1,7 @@
 #include "motor.h"
 #include "source/common/definitions.h"
 #include "source/common/utils.h"
+#include "source/encoder/encoder.h"
 #include <avr/io.h>
 
 //TODO: move config to eeprom
@@ -10,7 +11,7 @@
 #define MOTOR_MAX_SPEED 128
 
 uint8_t motorTargetSpeed = MOTOR_START_SPEED;
-bool motorDirection = false;
+bool motorDirection = DIRECTION_FORWARD;
 
 //совпадает ли текущее направление вращения мотора с установленным
 bool motorIsDirectionRight() {
@@ -44,6 +45,7 @@ void motorStart(bool direction) {
 	motorDirection = direction;
 	if (OCR1B <= MOTOR_START_SPEED) {
 		motorSetDirection();
+		encoderEnableCounting(motorDirection);
 	}
 }
 
@@ -81,10 +83,12 @@ void motorProceed() {
 				//disable PWM Mode
 				TCCR1A &= ~(1 << COM1B1);
 				//disable direction relay if motor is stopped
-				motorDirection = false;
+				motorDirection = DIRECTION_FORWARD;
 				motorSetDirection();
+				encoderDisableCounting();
 			} else {
 				motorSetDirection();
+				encoderEnableCounting(motorDirection);
 			}
 		}
 	}
