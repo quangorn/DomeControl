@@ -1,6 +1,9 @@
 #include "motor.h"
+#include "source/common/definitions.h"
+#include "source/common/utils.h"
 #include <avr/io.h>
 
+//TODO: move config to eeprom
 #define MOTOR_SPEED_STEP_UP 2
 #define MOTOR_SPEED_STEP_DOWN 5
 #define MOTOR_START_SPEED 15
@@ -11,20 +14,21 @@ bool motorDirection = false;
 
 //совпадает ли текущее направление вращения мотора с установленным
 bool motorIsDirectionRight() {
-	return !motorDirection == !(PORTB & (1 << PORTB1)); //convert to bool
+	return !motorDirection == !(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN)); //convert to bool
 }
 
 void motorSetDirection() {
 	if (motorDirection) {
-		PORTB |= (1 << PORTB1);
+		OUTPORT(MOTOR_DIR_PORT) |= (1 << MOTOR_DIR_PIN);
 	} else {
-		PORTB &= ~(1 << PORTB1);
+		OUTPORT(MOTOR_DIR_PORT) &= ~(1 << MOTOR_DIR_PIN);
 	}
 }
 
 void motorInit() {
-	//PD5 is now an output
-	DDRB |= (1 << DDB2) | (1 << DDB1);
+	//set pins to output mode
+	DDRPORT(MOTOR_STEP_PORT) |= 1 << MOTOR_STEP_PIN;
+	DDRPORT(MOTOR_DIR_PORT) |= 1 << MOTOR_DIR_PIN;
 
 	//set none-inverting mode and fast PWM Mode
 	TCCR1A |= (1 << WGM11) | (1 << WGM10);

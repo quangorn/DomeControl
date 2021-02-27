@@ -6,7 +6,7 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-#define UART_PRESCALER (F_CPU / 8 / UART_BAUD_RATE - 1)
+#define USART_PRESCALER (F_CPU / 8 / USART_BAUD_RATE - 1)
 
 char usartSendBuffer[SEND_BUFFER_SIZE];
 volatile uint8_t usartSendPos = 0;
@@ -19,8 +19,8 @@ volatile bool usartCommandReceived = false;
 
 void usartInit () {
 	//Baud Rate speed setting
-	UBRRH = UART_PRESCALER >> 8;
-	UBRRL = UART_PRESCALER;
+	UBRRH = USART_PRESCALER >> 8;
+	UBRRL = USART_PRESCALER;
 
 	//Double transmission speed
 	UCSRA |= 1 << U2X;
