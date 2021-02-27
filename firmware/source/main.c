@@ -1,6 +1,7 @@
 #include "motor/motor.h"
 #include "usart/usart.h"
 #include "common/utils.h"
+#include "common/definitions.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
@@ -39,12 +40,15 @@ int main (void) {
 
 		const char* cmd = usartGetReceivedCommand();
 		if (cmd) {
-			if (checkCommand("Forward", cmd)) {
+			if (checkCommand(CMD_GO_FORWARD, cmd)) {
 				motorStart(true);
-				usartPrintln("Forward start!");
-			} else if (checkCommand("Reverse", cmd)) {
+				usartPrintln(RESP_GO_FORWARD_OK);
+			} else if (checkCommand(CMD_GO_REVERSE, cmd)) {
 				motorStart(false);
-				usartPrintln("Reverse start!");
+				usartPrintln(RESP_GO_REVERSE_OK);
+			} else if (checkCommand(CMD_STOP, cmd)) {
+				motorStop();
+				usartPrintln(RESP_STOP_OK);
 			} else {
 				usartPrint("Unrecognized command: ");
 				usartPrint(cmd);
@@ -55,10 +59,14 @@ int main (void) {
 		if (buttonsState != lastButtonsState) {
 			if (!(PIND & (1 << PIND2))) {
 				motorToggle(true);
+#ifdef DEBUG
 				usartPrintln("Forward!");
+#endif
 			} else if (!(PIND & (1 << PIND3))) {
 				motorToggle(false);
+#ifdef DEBUG
 				usartPrintln("Reverse!");
+#endif
 			}
 			lastButtonsState = buttonsState;
 		}
