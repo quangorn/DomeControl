@@ -2,24 +2,23 @@
 #include "source/common/definitions.h"
 #include "source/common/utils.h"
 #include "source/encoder/encoder.h"
+#include "source/settings/settings.h"
 #include <avr/io.h>
 
-//TODO: move config to eeprom
-#define MOTOR_SPEED_STEP_UP 2
-#define MOTOR_SPEED_STEP_DOWN 5
-#define MOTOR_START_SPEED 15
-#define MOTOR_MAX_SPEED 128
+static uint8_t motorTargetSpeed;
+static bool motorTargetDirection = DIRECTION_FORWARD;
 
-static uint8_t motorTargetSpeed = MOTOR_START_SPEED;
-static bool motorDirection = DIRECTION_FORWARD;
+bool motorGetDirection() {
+	return (bool)(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN));
+}
 
 //совпадает ли текущее направление вращения мотора с установленным
 bool motorIsDirectionRight() {
-	return !motorDirection == !(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN)); //convert to bool
+	return motorTargetDirection == motorGetDirection();
 }
 
 void motorSetDirection() {
-	if (motorDirection) {
+	if (motorTargetDirection) {
 		OUTPORT(MOTOR_DIR_PORT) |= (1 << MOTOR_DIR_PIN);
 	} else {
 		OUTPORT(MOTOR_DIR_PORT) &= ~(1 << MOTOR_DIR_PIN);
@@ -37,58 +36,65 @@ void motorInit() {
 	//set prescaler to 1024
 	TCCR1B |= (1 << CS00) | (1 << CS02);
 
-	OCR1B = MOTOR_START_SPEED;
+	motorTargetSpeed = settings.motorStartSpeed;
+	OCR1B = motorTargetSpeed;
 }
 
 void motorStart(bool direction) {
-	motorTargetSpeed = MOTOR_MAX_SPEED;
-	motorDirection = direction;
-	if (OCR1B <= MOTOR_START_SPEED) {
+	motorTargetSpeed = settings.motorMaxSpeed;
+	motorTargetDirection = direction;
+	if (OCR1B <= settings.motorStartSpeed) {
 		motorSetDirection();
-		encoderEnableCounting(motorDirection);
+		encoderEnableCounting(motorTargetDirection);
 	}
 }
 
 void motorStop() {
-	motorTargetSpeed = MOTOR_START_SPEED;
+	motorTargetSpeed = settings.motorStartSpeed;
 }
 
 bool motorIsStarted() {
-	return motorTargetSpeed > MOTOR_START_SPEED;
+	return motorTargetSpeed > settings.motorStartSpeed;
 }
 
 void motorProceed() {
+	bool currentDirection = motorGetDirection();
+	int16_t encoderValue = encoderGetValue();
+	if ((currentDirection == DIRECTION_FORWARD && encoderValue >= encoderGetForwardLimitPosition()) ||
+		(currentDirection == DIRECTION_REVERSE && encoderValue <= encoderGetReverseLimitPosition())) {
+		motorStop();
+	}
 	uint8_t targetSpeed = motorTargetSpeed;
 	if (!motorIsDirectionRight()) {
-		targetSpeed = MOTOR_START_SPEED;
+		targetSpeed = settings.motorStartSpeed;
 	}
 	if (OCR1B < targetSpeed) {
-		if (OCR1B <= MOTOR_START_SPEED) {
+		if (OCR1B <= settings.motorStartSpeed) {
 			//enable PWM Mode
 			TCCR1A |= 1 << COM1B1;
 		}
-		if (targetSpeed - OCR1B < MOTOR_SPEED_STEP_UP) {
+		if (targetSpeed - OCR1B < settings.motorSpeedStepUp) {
 			OCR1B = targetSpeed;
 		} else {
-			OCR1B += MOTOR_SPEED_STEP_UP;
+			OCR1B += settings.motorSpeedStepUp;
 		}
-	} else if (OCR1B > targetSpeed) {
-		if (OCR1B - targetSpeed < MOTOR_SPEED_STEP_DOWN) {
+	} else {
+		if (OCR1B - targetSpeed < settings.motorSpeedStepDown) {
 			OCR1B = targetSpeed;
 		} else {
-			OCR1B -= MOTOR_SPEED_STEP_DOWN;
+			OCR1B -= settings.motorSpeedStepDown;
 		}
-		if (OCR1B <= MOTOR_START_SPEED) {
+		if (OCR1B <= settings.motorStartSpeed) {
 			if (motorIsDirectionRight()) {
 				//disable PWM Mode
 				TCCR1A &= ~(1 << COM1B1);
 				//disable direction relay if motor is stopped
-				motorDirection = DIRECTION_FORWARD;
+				motorTargetDirection = DIRECTION_FORWARD;
 				motorSetDirection();
 				encoderDisableCounting();
 			} else {
 				motorSetDirection();
-				encoderEnableCounting(motorDirection);
+				encoderEnableCounting(motorTargetDirection);
 			}
 		}
 	}

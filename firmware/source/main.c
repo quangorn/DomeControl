@@ -1,11 +1,12 @@
 #include "buttons/buttons.h"
+#include "common/utils.h"
+#include "common/definitions.h"
 #include "encoder/encoder.h"
 #include "led/led.h"
 #include "limits/limits.h"
 #include "motor/motor.h"
+#include "settings/settings.h"
 #include "usart/usart.h"
-#include "common/utils.h"
-#include "common/definitions.h"
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <stdio.h>
@@ -16,6 +17,8 @@
 int main (void) {
 
 	char buf[64];
+
+	settingsInitDefault();
 
 	buttonsInit();
 	encoderInit();
@@ -70,6 +73,7 @@ int main (void) {
 		}
 #endif
 
+		limitsProceed();
 		motorProceed();
 	}
 }

@@ -14,6 +14,8 @@
 #define DIRECTION_FORWARD   false
 #define DIRECTION_REVERSE   true
 
+#define ENCODER_CENTER_POSITION 0
+
 ///IO Ports
 #define MOTOR_STEP_PORT             B
 #define MOTOR_STEP_PIN              2 //timer1 PWM output OC1B
@@ -35,8 +37,8 @@
 #define LIMIT_FORWARD_PIN           0
 #define LIMIT_REVERSE_PORT          C
 #define LIMIT_REVERSE_PIN           1
-#define LIMIT_PARK_POSITION_PORT    C
-#define LIMIT_PARK_POSITION_PIN     2
+#define LIMIT_CENTER_PORT           C
+#define LIMIT_CENTER_PIN            2
 
 
 ///Commands

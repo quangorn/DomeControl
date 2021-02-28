@@ -1,12 +1,13 @@
 #include "encoder.h"
 #include "source/common/definitions.h"
+#include "source/settings/settings.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
 static volatile bool encoderCountingEnabled = false;
 static volatile bool encoderDirection = DIRECTION_FORWARD;
-static volatile int16_t encoderValue = 0;
+static volatile int16_t encoderValue = ENCODER_CENTER_POSITION;
 
 void encoderInit() {
 	//enable pull up
@@ -35,10 +36,34 @@ int16_t encoderGetValue() {
 	return value;
 }
 
+int16_t encoderGetForwardLimitPosition() {
+	return settings.encoderForwardLimitPosition;
+}
+
+int16_t encoderGetReverseLimitPosition() {
+	return settings.encoderReverseLimitPosition;
+}
+
+int16_t encoderGetCenterPosition() {
+	return ENCODER_CENTER_POSITION;
+}
+
 void encoderSetValue(int16_t value) {
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		encoderValue = value;
 	}
+}
+
+void encoderSetForwardLimitPosition() {
+	encoderSetValue(encoderGetForwardLimitPosition());
+}
+
+void encoderSetReverseLimitPosition() {
+	encoderSetValue(encoderGetReverseLimitPosition());
+}
+
+void encoderSetCenterPosition() {
+	encoderSetValue(encoderGetCenterPosition());
 }
 
 //======= Interrupt vectors =======

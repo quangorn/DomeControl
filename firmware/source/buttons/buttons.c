@@ -3,8 +3,8 @@
 #include "source/common/definitions.h"
 #include <avr/io.h>
 
-static bool buttonsForwardState = false;
-static bool buttonsReverseState = false;
+static bool buttonForwardState = false;
+static bool buttonReverseState = false;
 
 void buttonsInit() {
 	//enable pull up for buttons pins
@@ -13,13 +13,13 @@ void buttonsInit() {
 }
 
 bool buttonsIsForwardPressed() {
-	bool oldState = buttonsForwardState;
-	buttonsForwardState = !(INPORT(BUTTON_FORWARD_PORT) & (1 << BUTTON_FORWARD_PIN));
-	return !oldState && buttonsForwardState;
+	bool oldState = buttonForwardState;
+	buttonForwardState = !(INPORT(BUTTON_FORWARD_PORT) & (1 << BUTTON_FORWARD_PIN));
+	return !oldState && buttonForwardState;
 }
 
 bool buttonsIsReversePressed() {
-	bool oldState = buttonsReverseState;
-	buttonsReverseState = !(INPORT(BUTTON_REVERSE_PORT) & (1 << BUTTON_REVERSE_PIN));
-	return !oldState && buttonsReverseState;
+	bool oldState = buttonReverseState;
+	buttonReverseState = !(INPORT(BUTTON_REVERSE_PORT) & (1 << BUTTON_REVERSE_PIN));
+	return !oldState && buttonReverseState;
 }
