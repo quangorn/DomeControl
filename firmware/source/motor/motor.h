@@ -12,5 +12,6 @@ void motorProceed();
 bool motorIsStarted();
 //stop if started and start if stopped
 void motorToggle(bool direction);
+void motorGoTo(int16_t position);
 
 #endif /* MOTOR_H_ */

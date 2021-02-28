@@ -7,6 +7,8 @@
 
 static uint8_t motorTargetSpeed;
 static bool motorTargetDirection = DIRECTION_FORWARD;
+static bool motorGoToEnabled = false;
+static int16_t motorTargetPosition = ENCODER_CENTER_POSITION;
 
 bool motorGetDirection() {
 	return (bool)(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN));
@@ -41,6 +43,7 @@ void motorInit() {
 }
 
 void motorStart(bool direction) {
+	motorGoToEnabled = false;
 	motorTargetSpeed = settings.motorMaxSpeed;
 	motorTargetDirection = direction;
 	if (OCR1B <= settings.motorStartSpeed) {
@@ -50,6 +53,7 @@ void motorStart(bool direction) {
 }
 
 void motorStop() {
+	motorGoToEnabled = false;
 	motorTargetSpeed = settings.motorStartSpeed;
 }
 
@@ -58,10 +62,14 @@ bool motorIsStarted() {
 }
 
 void motorProceed() {
-	bool currentDirection = motorGetDirection();
 	int16_t encoderValue = encoderGetValue();
-	if ((currentDirection == DIRECTION_FORWARD && encoderValue >= encoderGetForwardLimitPosition()) ||
-		(currentDirection == DIRECTION_REVERSE && encoderValue <= encoderGetReverseLimitPosition())) {
+	int16_t forwardLimitPosition = encoderGetForwardLimitPosition();
+	int16_t reverseLimitPosition = encoderGetReverseLimitPosition();
+	if (motorGoToEnabled) {
+		forwardLimitPosition = reverseLimitPosition = motorTargetPosition;
+	}
+	if ((motorTargetDirection == DIRECTION_FORWARD && encoderValue >= forwardLimitPosition) ||
+		(motorTargetDirection == DIRECTION_REVERSE && encoderValue <= reverseLimitPosition)) {
 		motorStop();
 	}
 	uint8_t targetSpeed = motorTargetSpeed;
@@ -106,4 +114,20 @@ void motorToggle(bool direction) {
 	} else {
 		motorStart(direction);
 	}
+}
+
+void motorGoTo(int16_t position) {
+	int16_t encoderValue = encoderGetValue();
+	if (position > encoderValue) {
+		motorStart(DIRECTION_FORWARD);
+		int16_t forwardLimitPosition = encoderGetForwardLimitPosition();
+		motorTargetPosition = position > forwardLimitPosition ? forwardLimitPosition : position;
+	} else if (position < encoderValue) {
+		motorStart(DIRECTION_REVERSE);
+		int16_t reverseLimitPosition = encoderGetReverseLimitPosition();
+		motorTargetPosition = position < reverseLimitPosition ? reverseLimitPosition : position;
+	} else {
+		return;
+	}
+	motorGoToEnabled = true;
 }

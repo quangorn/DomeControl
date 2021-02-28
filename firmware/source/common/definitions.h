@@ -45,11 +45,13 @@
 const char* CMD_GO_FORWARD;
 const char* CMD_GO_REVERSE;
 const char* CMD_STOP;
+const char* CMD_GOTO;
 
 
 ///Responses
 const char* RESP_GO_FORWARD_OK;
 const char* RESP_GO_REVERSE_OK;
 const char* RESP_STOP_OK;
+const char* RESP_GOTO_OK;
 
 #endif /* DEFINITIONS_H_ */

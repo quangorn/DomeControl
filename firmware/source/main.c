@@ -11,6 +11,7 @@
 #include <util/delay.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <stdlib.h>
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
@@ -46,6 +47,14 @@ int main (void) {
 			} else if (checkCommand(CMD_STOP, cmd)) {
 				motorStop();
 				usartPrintln(RESP_STOP_OK);
+			} else if (checkCommand(CMD_GOTO, cmd)) {
+				int16_t position = atoi(cmd + strlen(CMD_GOTO));
+				motorGoTo(position);
+#ifdef DEBUG
+				sprintf(buf, "Go to: %" PRId16, position);
+				usartPrintln(buf);
+#endif
+				usartPrintln(RESP_GOTO_OK);
 			} else {
 				usartPrint("Unrecognized command: ");
 				usartPrint(cmd);
