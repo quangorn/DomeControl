@@ -4,9 +4,9 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-volatile bool encoderCountingEnabled = false;
-volatile bool encoderDirection = DIRECTION_FORWARD;
-volatile int16_t encoderValue = 0;
+static volatile bool encoderCountingEnabled = false;
+static volatile bool encoderDirection = DIRECTION_FORWARD;
+static volatile int16_t encoderValue = 0;
 
 void encoderInit() {
 	//enable pull up

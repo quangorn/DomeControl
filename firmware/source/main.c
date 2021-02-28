@@ -1,6 +1,7 @@
 #include "buttons/buttons.h"
 #include "encoder/encoder.h"
 #include "led/led.h"
+#include "limits/limits.h"
 #include "motor/motor.h"
 #include "usart/usart.h"
 #include "common/utils.h"
@@ -19,6 +20,7 @@ int main (void) {
 	buttonsInit();
 	encoderInit();
 	ledInit();
+	limitsInit();
 	motorInit();
 	usartInit();
 

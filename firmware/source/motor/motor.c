@@ -10,8 +10,8 @@
 #define MOTOR_START_SPEED 15
 #define MOTOR_MAX_SPEED 128
 
-uint8_t motorTargetSpeed = MOTOR_START_SPEED;
-bool motorDirection = DIRECTION_FORWARD;
+static uint8_t motorTargetSpeed = MOTOR_START_SPEED;
+static bool motorDirection = DIRECTION_FORWARD;
 
 //совпадает ли текущее направление вращения мотора с установленным
 bool motorIsDirectionRight() {

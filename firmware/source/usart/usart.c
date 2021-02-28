@@ -8,14 +8,14 @@
 
 #define USART_PRESCALER (F_CPU / 8 / USART_BAUD_RATE - 1)
 
-char usartSendBuffer[SEND_BUFFER_SIZE];
-volatile uint8_t usartSendPos = 0;
-volatile uint8_t usartSendBufferEndPos = 0;
-volatile bool usartSendIsActive = false;
+static char usartSendBuffer[SEND_BUFFER_SIZE];
+static volatile uint8_t usartSendPos = 0;
+static volatile uint8_t usartSendBufferEndPos = 0;
+static volatile bool usartSendIsActive = false;
 
-char usartReceiveBuffer[MAX_COMMAND_LENGTH];
-volatile uint8_t usartReceivePos = 0;
-volatile bool usartCommandReceived = false;
+static char usartReceiveBuffer[MAX_COMMAND_LENGTH];
+static volatile uint8_t usartReceivePos = 0;
+static volatile bool usartCommandReceived = false;
 
 void usartInit () {
 	//Baud Rate speed setting

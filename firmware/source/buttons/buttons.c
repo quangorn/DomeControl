@@ -3,8 +3,8 @@
 #include "source/common/definitions.h"
 #include <avr/io.h>
 
-bool buttonsForwardState = false;
-bool buttonsReverseState = false;
+static bool buttonsForwardState = false;
+static bool buttonsReverseState = false;
 
 void buttonsInit() {
 	//enable pull up for buttons pins
