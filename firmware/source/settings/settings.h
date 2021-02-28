@@ -11,7 +11,9 @@ struct Settings {
 
 	int16_t encoderForwardLimitPosition;
 	int16_t encoderReverseLimitPosition;
-} settings;
+};
+
+extern struct Settings settings;
 
 void settingsInitDefault(); //TODO: remove after eeprom save implementation
 

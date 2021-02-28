@@ -17,8 +17,6 @@
 #pragma ide diagnostic ignored "EndlessLoop"
 int main (void) {
 
-	char buf[64];
-
 	settingsInitDefault();
 
 	buttonsInit();
@@ -30,7 +28,10 @@ int main (void) {
 
 	sei();
 
+#ifdef DEBUG
+	char buf[64];
 	int16_t lastEncoderValue = 0;
+#endif
 	while (1) {
 		//TODO: убрать delay, чтобы не пропустить команду по usart
 		_delay_ms(40);

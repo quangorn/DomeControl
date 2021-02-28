@@ -1,5 +1,7 @@
 #include "settings.h"
 
+struct Settings settings;
+
 void settingsInitDefault() {
 	settings.motorSpeedStepUp = 2;
 	settings.motorSpeedStepDown = 5;
