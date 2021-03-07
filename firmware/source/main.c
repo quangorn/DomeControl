@@ -9,9 +9,6 @@
 #include "usart/usart.h"
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include <stdio.h>
-#include <inttypes.h>
-#include <stdlib.h>
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
@@ -42,27 +39,28 @@ int main (void) {
 		if (cmd) {
 			if (checkCommand(CMD_GO_FORWARD, cmd)) {
 				motorStart(true);
-				usartPrintln(RESP_GO_FORWARD_OK);
+				usartPrintln(RESP_OK);
 			} else if (checkCommand(CMD_GO_REVERSE, cmd)) {
 				motorStart(false);
-				usartPrintln(RESP_GO_REVERSE_OK);
+				usartPrintln(RESP_OK);
 			} else if (checkCommand(CMD_STOP, cmd)) {
 				motorStop();
-				usartPrintln(RESP_STOP_OK);
+				usartPrintln(RESP_OK);
 			} else if (checkCommand(CMD_GOTO, cmd)) {
-                int16_t position = atoi(cmd + strlen(CMD_GOTO));
+                int16_t position = parseInt(cmd + strlen(CMD_GOTO));
                 motorGoTo(position);
 #ifdef DEBUG
-                sprintf(buf, "Go to: %" PRId16, position);
+                usartPrint("Go to: ");
+                printInt(position, buf);
                 usartPrintln(buf);
 #endif
-                usartPrintln(RESP_GOTO_OK);
+                usartPrintln(RESP_OK);
             } else if (checkCommand(CMD_GET_ENCODER_VALUE, cmd)) {
-                itoa(encoderGetValue(), buf, 10);
+                printInt(encoderGetValue(), buf);
                 usartPrintln(buf);
 			} else {
 				usartPrint("Unrecognized command: ");
-				usartPrint(cmd);
+				usartPrintln(cmd);
 			}
 		}
 
@@ -82,7 +80,8 @@ int main (void) {
 		int16_t encoderValue = encoderGetValue();
 		if (encoderValue != lastEncoderValue) {
 			lastEncoderValue = encoderValue;
-			sprintf(buf, "Encoder value: %" PRId16, encoderValue);
+            usartPrint("Encoder value: ");
+            printInt(encoderValue, buf);
 			usartPrintln(buf);
 		}
 #endif

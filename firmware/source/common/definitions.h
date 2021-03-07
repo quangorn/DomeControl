@@ -50,9 +50,6 @@ extern const char* CMD_GET_ENCODER_VALUE;
 
 
 ///Responses
-extern const char* RESP_GO_FORWARD_OK;
-extern const char* RESP_GO_REVERSE_OK;
-extern const char* RESP_STOP_OK;
-extern const char* RESP_GOTO_OK;
+extern const char* RESP_OK;
 
 #endif /* DEFINITIONS_H_ */
