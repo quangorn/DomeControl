@@ -47,6 +47,9 @@ extern const char* CMD_GO_REVERSE;
 extern const char* CMD_STOP;
 extern const char* CMD_GOTO;
 extern const char* CMD_GET_ENCODER_VALUE;
+extern const char* CMD_IS_ON_CENTER;
+extern const char* CMD_IS_MOVING;
+extern const char* CMD_FIND_CENTER;
 
 
 ///Responses

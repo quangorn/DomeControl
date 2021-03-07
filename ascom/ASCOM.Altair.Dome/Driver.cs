@@ -72,7 +72,12 @@ namespace ASCOM.Altair
         internal static string comPort; // Variables to hold the current device configuration
 
         //TODO: move to config
-        internal static SerialSpeed serialSpeed = SerialSpeed.ps115200;
+        internal const SerialSpeed serialSpeed = SerialSpeed.ps115200;
+        internal const double homePostionAzimuth = 180;
+        //12.58mm each tooth
+        //8500mm perimeter
+        //675 total teeth
+        internal const double encoderStepAzimuthDegrees = 0.533;
 
         /// <summary>
         /// Private variable to hold an ASCOM Utilities object
@@ -104,7 +109,6 @@ namespace ASCOM.Altair
 
             utilities = new Util(); //Initialise util object
             astroUtilities = new AstroUtils(); // Initialise astro-utilities object
-            //TODO: Implement your additional construction here
 
             LogMessage("Dome", "Completed initialisation");
         }
@@ -306,8 +310,7 @@ namespace ASCOM.Altair
 
         public void AbortSlew()
         {
-            // This is a mandatory parameter but we have no action to take in this simple driver
-            LogMessage("AbortSlew", "Completed");
+            MotorStop();
         }
 
         public double Altitude
@@ -323,8 +326,7 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("AtHome Get", "Not implemented");
-                throw new ASCOM.PropertyNotImplementedException("AtHome", false);
+                return IsOnCenter();
             }
         }
 
@@ -332,8 +334,7 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("AtPark Get", "Not implemented");
-                throw new ASCOM.PropertyNotImplementedException("AtPark", false);
+                return IsOnCenter();
             }
         }
 
@@ -341,8 +342,10 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("Azimuth Get", "Not implemented");
-                throw new ASCOM.PropertyNotImplementedException("Azimuth", false);
+                Int16 encoderValue = GetEncoderValue();
+                double azimuth = EncoderValueToAzimuth(encoderValue);
+                LogMessage("Azimuth Get", "Value: {0}; raw: {1}", azimuth, encoderValue);
+                return azimuth;
             }
         }
 
@@ -350,8 +353,8 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("CanFindHome Get", false.ToString());
-                return false;
+                LogMessage("CanFindHome Get", true.ToString());
+                return true;
             }
         }
 
@@ -359,8 +362,8 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("CanPark Get", false.ToString());
-                return false;
+                LogMessage("CanPark Get", true.ToString());
+                return true;
             }
         }
 
@@ -377,8 +380,8 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("CanSetAzimuth Get", false.ToString());
-                return false;
+                LogMessage("CanSetAzimuth Get", true.ToString());
+                return true;
             }
         }
 
@@ -426,8 +429,8 @@ namespace ASCOM.Altair
 
         public void FindHome()
         {
-            LogMessage("FindHome", "Not implemented");
-            throw new ASCOM.MethodNotImplementedException("FindHome");
+            LogMessage("FindHome", "Called");
+            FindCenter();
         }
 
         public void OpenShutter()
@@ -438,8 +441,8 @@ namespace ASCOM.Altair
 
         public void Park()
         {
-            LogMessage("Park", "Not implemented");
-            throw new ASCOM.MethodNotImplementedException("Park");
+            LogMessage("Park", "Called");
+            FindCenter();
         }
 
         public void SetPark()
@@ -486,18 +489,18 @@ namespace ASCOM.Altair
             throw new ASCOM.MethodNotImplementedException("SlewToAltitude");
         }
 
-        public void SlewToAzimuth(double Azimuth)
+        public void SlewToAzimuth(double azimuth)
         {
-            LogMessage("SlewToAzimuth", "Not implemented");
-            throw new ASCOM.MethodNotImplementedException("SlewToAzimuth");
+            LogMessage("SlewToAzimuth", azimuth.ToString());
+            Int16 targetEncoderValue = AzimuthToEncoderValue(azimuth);
+            GoTo(targetEncoderValue);
         }
 
         public bool Slewing
         {
             get
             {
-                LogMessage("Slewing Get", false.ToString());
-                return false;
+                return IsMoving();
             }
         }
 
@@ -518,12 +521,89 @@ namespace ASCOM.Altair
             return CommandString(command + '#', false);
         }
 
-        private int GetEncoderValue()
+        private void SendCommandWithSimpleResp(string command)
         {
-            string strValue = SendCommand(Commands.CMD_GET_ENCODER_VALUE);
-            int value = int.Parse(strValue);
+            string resp = SendCommand(command);
+            if (resp != Responses.OK)
+                throw new ASCOM.DriverException(string.Format("Bad command {0} response: {1}", command, resp));
+        }
+
+        private Int16 SendCommandWithIntResp(string command)
+        {
+            string resp = SendCommand(command);
+            Int16 value;
+            try
+            {
+                value = Int16.Parse(resp);
+            }
+            catch (Exception e) 
+            {
+                if (e is FormatException || e is OverflowException)
+                {
+                    throw new ASCOM.DriverException(
+                        string.Format("Bad command {0} int response: {1}", command, resp),
+                        e);
+                }
+                throw e;
+            }
+            return value;
+        }
+
+        private bool SendCommandWithBoolResp(string command)
+        {
+            return SendCommandWithIntResp(command) != 0;
+        }
+
+        private Int16 GetEncoderValue()
+        {
+            Int16 value = SendCommandWithIntResp(Commands.GET_ENCODER_VALUE);
             LogMessage("GetEncoderValue", "Value: {0}", value);
             return value;
+        }
+
+        private bool IsOnCenter()
+        {
+            bool value = SendCommandWithBoolResp(Commands.IS_ON_CENTER);
+            LogMessage("IsOnCenter", value.ToString());
+            return value;
+        }
+        private bool IsMoving()
+        {
+            bool value = SendCommandWithBoolResp(Commands.IS_MOVING);
+            LogMessage("IsMoving", value.ToString());
+            return value;
+        }
+
+        private void MotorStop()
+        {
+            LogMessage("MotorStop", "Called");
+            SendCommandWithSimpleResp(Commands.STOP);
+        }
+
+        private void FindCenter()
+        {
+            LogMessage("FindCenter", "Called");
+            SendCommandWithSimpleResp(Commands.FIND_CENTER);
+        }
+
+        private void GoTo(Int16 targetEncoderPosition)
+        {
+            LogMessage("GoTo", targetEncoderPosition.ToString());
+            SendCommandWithSimpleResp(string.Format("{0}{1}", Commands.GOTO, targetEncoderPosition));
+        }
+
+        private double EncoderValueToAzimuth(Int16 encoderValue)
+        {
+            double azimuth = homePostionAzimuth + encoderStepAzimuthDegrees * encoderValue;
+            return azimuth > 0 ? azimuth : azimuth + 360;
+        }
+
+        private Int16 AzimuthToEncoderValue(double azimuth)
+        {
+            double azimuthDelta = azimuth - homePostionAzimuth;
+            if (azimuthDelta > 180)
+                azimuthDelta -= 360;
+            return (Int16)Math.Round(azimuthDelta / encoderStepAzimuthDegrees);
         }
 
         #region ASCOM Registration

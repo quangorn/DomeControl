@@ -58,6 +58,15 @@ int main (void) {
             } else if (checkCommand(CMD_GET_ENCODER_VALUE, cmd)) {
                 printInt(encoderGetValue(), buf);
                 usartPrintln(buf);
+            } else if (checkCommand(CMD_IS_ON_CENTER, cmd)) {
+                printInt(limitsIsOnCenter(), buf);
+                usartPrintln(buf);
+            } else if (checkCommand(CMD_IS_MOVING, cmd)) {
+                printInt(motorIsMoving(), buf);
+                usartPrintln(buf);
+            } else if (checkCommand(CMD_FIND_CENTER, cmd)) {
+			    motorFindCenter();
+                usartPrintln(RESP_OK);
 			} else {
 				usartPrint("Unrecognized command: ");
 				usartPrintln(cmd);

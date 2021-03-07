@@ -2,12 +2,14 @@
 #include "source/common/definitions.h"
 #include "source/common/utils.h"
 #include "source/encoder/encoder.h"
+#include "source/limits/limits.h"
 #include "source/settings/settings.h"
 #include <avr/io.h>
 
 static uint8_t motorTargetSpeed;
 static bool motorTargetDirection = DIRECTION_FORWARD;
 static bool motorGoToEnabled = false;
+static bool motorFindingCenter = false;
 static int16_t motorTargetPosition = ENCODER_CENTER_POSITION;
 
 bool motorGetDirection() {
@@ -44,9 +46,10 @@ void motorInit() {
 
 void motorStart(bool direction) {
 	motorGoToEnabled = false;
+	motorFindingCenter = false;
 	motorTargetSpeed = settings.motorMaxSpeed;
 	motorTargetDirection = direction;
-	if (OCR1B <= settings.motorStartSpeed) {
+	if (!motorIsMoving()) {
 		motorSetDirection();
 		encoderEnableCounting(motorTargetDirection);
 	}
@@ -54,6 +57,7 @@ void motorStart(bool direction) {
 
 void motorStop() {
 	motorGoToEnabled = false;
+	motorFindingCenter = false;
 	motorTargetSpeed = settings.motorStartSpeed;
 }
 
@@ -61,15 +65,20 @@ bool motorIsStarted() {
 	return motorTargetSpeed > settings.motorStartSpeed;
 }
 
+bool motorIsMoving() {
+	return OCR1B > settings.motorStartSpeed;
+}
+
 void motorProceed() {
 	int16_t encoderValue = encoderGetValue();
 	int16_t forwardLimitPosition = encoderGetForwardLimitPosition();
 	int16_t reverseLimitPosition = encoderGetReverseLimitPosition();
-	if (motorGoToEnabled) {
+	if (motorGoToEnabled && !motorFindingCenter) {
 		forwardLimitPosition = reverseLimitPosition = motorTargetPosition;
 	}
 	if ((motorTargetDirection == DIRECTION_FORWARD && encoderValue >= forwardLimitPosition) ||
-		(motorTargetDirection == DIRECTION_REVERSE && encoderValue <= reverseLimitPosition)) {
+		(motorTargetDirection == DIRECTION_REVERSE && encoderValue <= reverseLimitPosition) ||
+		(motorFindingCenter && limitsIsOnCenter())) {
 		motorStop();
 	}
 	uint8_t targetSpeed = motorTargetSpeed;
@@ -77,7 +86,7 @@ void motorProceed() {
 		targetSpeed = settings.motorStartSpeed;
 	}
 	if (OCR1B < targetSpeed) {
-		if (OCR1B <= settings.motorStartSpeed) {
+		if (!motorIsMoving()) {
 			//enable PWM Mode
 			TCCR1A |= 1 << COM1B1;
 		}
@@ -130,4 +139,9 @@ void motorGoTo(int16_t position) {
 		return;
 	}
 	motorGoToEnabled = true;
+}
+
+void motorFindCenter() {
+	motorGoTo(ENCODER_CENTER_POSITION);
+	motorFindingCenter = true;
 }
