@@ -9,3 +9,5 @@ Observatory dome control
    * Executable: `run.bat`
    * Program arguments: `$CMakeCurrentTargetName$`
    * Working directory: `$CMakeCurrentBuildDir$`
+   
+Максимальные размеры платы: 120 * 80

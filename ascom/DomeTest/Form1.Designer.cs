@@ -29,10 +29,18 @@ namespace ASCOM.Altair
         /// </summary>
         private void InitializeComponent()
         {
+            this.updateTimer = new System.Timers.Timer(2000);
             this.buttonChoose = new System.Windows.Forms.Button();
             this.buttonConnect = new System.Windows.Forms.Button();
+            this.buttonFindHome = new System.Windows.Forms.Button();
             this.labelDriverId = new System.Windows.Forms.Label();
+            this.labelAzimuth = new System.Windows.Forms.Label();
             this.SuspendLayout();
+
+            //timer
+            updateTimer.Elapsed += new System.Timers.ElapsedEventHandler(this.updateTimer_Elapsed);
+            updateTimer.Start();
+
             // 
             // buttonChoose
             // 
@@ -65,6 +73,27 @@ namespace ASCOM.Altair
             this.labelDriverId.Text = global::ASCOM.Altair.Properties.Settings.Default.DriverId;
             this.labelDriverId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // labelAzimuth
+            // 
+            this.labelAzimuth.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            //this.labelAzimuth.DataBindings.Add(new System.Windows.Forms.Binding("Text", driver., "DriverId", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
+            this.labelAzimuth.Location = new System.Drawing.Point(12, 70);
+            this.labelAzimuth.Name = "labelAzimuth";
+            this.labelAzimuth.Size = new System.Drawing.Size(291, 21);
+            this.labelAzimuth.TabIndex = 3;
+            //this.labelAzimuth.Text = "Azimuth";
+            this.labelAzimuth.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // buttonFindHome
+            // 
+            this.buttonFindHome.Location = new System.Drawing.Point(309, 69);
+            this.buttonFindHome.Name = "buttonFindHome";
+            this.buttonFindHome.Size = new System.Drawing.Size(72, 23);
+            this.buttonFindHome.TabIndex = 4;
+            this.buttonFindHome.Text = "FindHome";
+            this.buttonFindHome.UseVisualStyleBackColor = true;
+            this.buttonFindHome.Click += new System.EventHandler(this.buttonFindHome_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -73,6 +102,8 @@ namespace ASCOM.Altair
             this.Controls.Add(this.labelDriverId);
             this.Controls.Add(this.buttonConnect);
             this.Controls.Add(this.buttonChoose);
+            this.Controls.Add(this.labelAzimuth);
+            this.Controls.Add(this.buttonFindHome);
             this.Name = "Form1";
             this.Text = "TEMPLATEDEVICETYPE Test";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
@@ -82,9 +113,13 @@ namespace ASCOM.Altair
 
         #endregion
 
+        private System.Timers.Timer updateTimer;
+
         private System.Windows.Forms.Button buttonChoose;
         private System.Windows.Forms.Button buttonConnect;
+        private System.Windows.Forms.Button buttonFindHome;
         private System.Windows.Forms.Label labelDriverId;
+        private System.Windows.Forms.Label labelAzimuth;
     }
 }
 

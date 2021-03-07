@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Timers;
 using System.Windows.Forms;
 
 namespace ASCOM.Altair
@@ -42,11 +43,33 @@ namespace ASCOM.Altair
             SetUIState();
         }
 
+        private void buttonFindHome_Click(object sender, EventArgs e)
+        {
+            if (IsConnected)
+            {
+                driver.FindHome();
+            }
+            SetUIState();
+        }
+
+        private void updateTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            SetUIState();
+        }
+
         private void SetUIState()
         {
             buttonConnect.Enabled = !string.IsNullOrEmpty(Properties.Settings.Default.DriverId);
             buttonChoose.Enabled = !IsConnected;
             buttonConnect.Text = IsConnected ? "Disconnect" : "Connect";
+            if (driver != null && driver.Connected)
+            {
+                labelAzimuth.Text = driver.Azimuth.ToString();
+            }
+            else
+            {
+                labelAzimuth.Text = "";
+            }
         }
 
         private bool IsConnected

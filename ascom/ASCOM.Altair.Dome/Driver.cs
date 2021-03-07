@@ -523,8 +523,8 @@ namespace ASCOM.Altair
 
         private void SendCommandWithSimpleResp(string command)
         {
-            string resp = SendCommand(command);
-            if (resp != Responses.OK)
+            string resp = SendCommand(command).Trim();
+            if (!resp.Equals(Responses.OK))
                 throw new ASCOM.DriverException(string.Format("Bad command {0} response: {1}", command, resp));
         }
 
