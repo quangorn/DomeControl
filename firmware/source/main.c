@@ -17,6 +17,8 @@
 #pragma ide diagnostic ignored "EndlessLoop"
 int main (void) {
 
+    char buf[MAX_RESPONSE_LENGTH];
+
 	settingsInitDefault();
 
 	buttonsInit();
@@ -29,7 +31,6 @@ int main (void) {
 	sei();
 
 #ifdef DEBUG
-	char buf[64];
 	int16_t lastEncoderValue = 0;
 #endif
 	while (1) {
@@ -49,13 +50,16 @@ int main (void) {
 				motorStop();
 				usartPrintln(RESP_STOP_OK);
 			} else if (checkCommand(CMD_GOTO, cmd)) {
-				int16_t position = atoi(cmd + strlen(CMD_GOTO));
-				motorGoTo(position);
+                int16_t position = atoi(cmd + strlen(CMD_GOTO));
+                motorGoTo(position);
 #ifdef DEBUG
-				sprintf(buf, "Go to: %" PRId16, position);
-				usartPrintln(buf);
+                sprintf(buf, "Go to: %" PRId16, position);
+                usartPrintln(buf);
 #endif
-				usartPrintln(RESP_GOTO_OK);
+                usartPrintln(RESP_GOTO_OK);
+            } else if (checkCommand(CMD_GET_ENCODER_VALUE, cmd)) {
+                itoa(encoderGetValue(), buf, 10);
+                usartPrintln(buf);
 			} else {
 				usartPrint("Unrecognized command: ");
 				usartPrint(cmd);

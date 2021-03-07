@@ -1,4 +1,10 @@
 firmware/.idea/*
-firmware/cmake-build-release/*
-firmware/cmake-build-debug/*
+firmware/cmake-build-*/*
 firmware/cmake_install.cmake
+firmware/out/*
+.vs/*
+ascom/ASCOM.Altair.Dome/.vs/*
+ascom/ASCOM.Altair.Dome/bin/*
+ascom/ASCOM.Altair.Dome/obj/*
+ascom/DomeTest/bin/*
+ascom/DomeTest/obj/*

@@ -46,6 +46,7 @@ extern const char* CMD_GO_FORWARD;
 extern const char* CMD_GO_REVERSE;
 extern const char* CMD_STOP;
 extern const char* CMD_GOTO;
+extern const char* CMD_GET_ENCODER_VALUE;
 
 
 ///Responses
