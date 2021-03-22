@@ -9,9 +9,12 @@ namespace ASCOM.Altair
 
         private ASCOM.DriverAccess.Dome driver;
 
+        private Control control;
+
         public Form1()
         {
             InitializeComponent();
+            control = this;
             SetUIState();
         }
 
@@ -54,7 +57,11 @@ namespace ASCOM.Altair
 
         private void updateTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            SetUIState();
+            //SetUIState();
+            control.BeginInvoke((MethodInvoker)delegate ()
+             {
+                 SetUIState();
+             });
         }
 
         private void SetUIState()

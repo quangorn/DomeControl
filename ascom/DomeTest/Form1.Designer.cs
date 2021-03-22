@@ -29,7 +29,7 @@ namespace ASCOM.Altair
         /// </summary>
         private void InitializeComponent()
         {
-            this.updateTimer = new System.Timers.Timer(2000);
+            this.updateTimer = new System.Timers.Timer(1000);
             this.buttonChoose = new System.Windows.Forms.Button();
             this.buttonConnect = new System.Windows.Forms.Button();
             this.buttonFindHome = new System.Windows.Forms.Button();
