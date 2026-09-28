@@ -11,8 +11,15 @@
 
 #define END_COMMAND_CHARACTER '#'
 
-#define DIRECTION_FORWARD   false
-#define DIRECTION_REVERSE   true
+//An enum, not a pair of bools: a bare literal at a call site reads as the opposite direction
+//(forward was `false`), which is how GOF/GOR ended up reversed. The numeric values are unchanged.
+//`encoder.c` keeps one of these in a volatile shared with INT0, so it must stay 1 byte; -fshort-enums
+//guarantees that (verified: sizeof(Direction) == 1). Note C does not reject `true` here, so the L0
+//guard tools/test_conventions.py enforces the constants instead.
+typedef enum {
+	DIRECTION_FORWARD,
+	DIRECTION_REVERSE
+} Direction;
 
 #define ENCODER_CENTER_POSITION 0
 

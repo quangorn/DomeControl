@@ -79,6 +79,10 @@ namespace ASCOM.Altair
         //675 total teeth
         internal const double encoderStepAzimuthDegrees = 0.533;
 
+        // End of a command frame; mirrors END_COMMAND_CHARACTER in the firmware
+        // (firmware/source/common/definitions.h)
+        private const char END_COMMAND_CHARACTER = '#';
+
         /// <summary>
         /// Private variable to hold an ASCOM Utilities object
         /// </summary>
@@ -189,13 +193,37 @@ namespace ASCOM.Altair
             {
                 throw new ASCOM.NotConnectedException();
             }
-            serialPort.ClearBuffers();
-            serialPort.Transmit(command);
-            return serialPort.ReceiveTerminated("\n");
+            // ASCOM calls the driver from more than one thread (a client polls Slewing while another
+            // issues AbortSlew). The firmware has a single command buffer and ClearBuffers() drops
+            // whatever the other thread has not read yet, so the whole transaction is serialised here.
+            lock (serialPort)
+            {
+                // `raw` means the caller supplies the terminator itself; otherwise the firmware needs
+                // END_COMMAND_CHARACTER ('#') to close the frame.
+                string frame = raw ? command : command + END_COMMAND_CHARACTER;
+                serialPort.ClearBuffers();
+                serialPort.Transmit(frame);
+                return serialPort.ReceiveTerminated("\n");
+            }
         }
 
         public void Dispose()
         {
+            // A client is not required to set Connected = false before disposing; leaving the port
+            // open would keep the COM port busy for the next instance.
+            if (serialPort != null)
+            {
+                try
+                {
+                    serialPort.Connected = false;
+                }
+                catch (Exception ex)
+                {
+                    LogMessage("Dispose", "could not close the serial port: {0}", ex.Message);
+                }
+                serialPort = null;
+            }
+
             // Clean up the trace logger and util objects
             tl.Enabled = false;
             tl.Dispose();
@@ -296,7 +324,7 @@ namespace ASCOM.Altair
         {
             get
             {
-                string name = "Short driver name - please customise";
+                string name = "Altair Dome";
                 LogMessage("Name Get", name);
                 return name;
             }
@@ -398,8 +426,10 @@ namespace ASCOM.Altair
         {
             get
             {
-                LogMessage("CanSetShutter Get", true.ToString());
-                return true;
+                // There is no shutter hardware: OpenShutter/CloseShutter only set an in-memory flag,
+                // so reporting true would invite clients to drive a shutter that does not exist.
+                LogMessage("CanSetShutter Get", false.ToString());
+                return false;
             }
         }
 
@@ -518,7 +548,8 @@ namespace ASCOM.Altair
 
         private string SendCommand(string command)
         {
-            return CommandString(command + '#', false);
+            // CommandString adds the terminator when raw is false
+            return CommandString(command, false);
         }
 
         private void SendCommandWithSimpleResp(string command)
@@ -595,7 +626,12 @@ namespace ASCOM.Altair
         private double EncoderValueToAzimuth(Int16 encoderValue)
         {
             double azimuth = homePostionAzimuth + encoderStepAzimuthDegrees * encoderValue;
-            return azimuth > 0 ? azimuth : azimuth + 360;
+            // Normalise into [0, 360): the dome range is currently +-100 steps, so the lower branch
+            // never fires today, but a wider range would return values above 360 to the client.
+            azimuth %= 360.0;
+            if (azimuth < 0)
+                azimuth += 360.0;
+            return azimuth;
         }
 
         private Int16 AzimuthToEncoderValue(double azimuth)

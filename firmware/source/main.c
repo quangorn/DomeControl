@@ -10,11 +10,53 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
+static void processCommand(const char* cmd) {
+	char buf[MAX_RESPONSE_LENGTH];
+
+	if (checkCommand(CMD_GO_FORWARD, cmd)) {
+		motorStart(DIRECTION_FORWARD);
+		usartPrintln(RESP_OK);
+	} else if (checkCommand(CMD_GO_REVERSE, cmd)) {
+		motorStart(DIRECTION_REVERSE);
+		usartPrintln(RESP_OK);
+	} else if (checkCommand(CMD_STOP, cmd)) {
+		motorStop();
+		usartPrintln(RESP_OK);
+	} else if (checkCommand(CMD_GOTO, cmd)) {
+		int16_t position = parseInt(cmd + strlen(CMD_GOTO));
+		motorGoTo(position);
+#ifdef DEBUG
+		usartPrint("Go to: ");
+		printInt(position, buf);
+		usartPrintln(buf);
+#endif
+		usartPrintln(RESP_OK);
+	} else if (checkCommand(CMD_GET_ENCODER_VALUE, cmd)) {
+		printInt(encoderGetValue(), buf);
+		usartPrintln(buf);
+	} else if (checkCommand(CMD_IS_ON_CENTER, cmd)) {
+		printInt(limitsIsOnCenter(), buf);
+		usartPrintln(buf);
+	} else if (checkCommand(CMD_IS_MOVING, cmd)) {
+		printInt(motorIsMoving(), buf);
+		usartPrintln(buf);
+	} else if (checkCommand(CMD_FIND_CENTER, cmd)) {
+		motorFindCenter();
+		usartPrintln(RESP_OK);
+	} else {
+		usartPrint("Unrecognized command: ");
+		usartPrintln(cmd);
+	}
+}
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
 int main (void) {
 
-    char buf[MAX_RESPONSE_LENGTH];
+#ifdef DEBUG
+	int16_t lastEncoderValue = 0;
+	char buf[MAX_RESPONSE_LENGTH];
+#endif
 
 	settingsInitDefault();
 
@@ -27,50 +69,17 @@ int main (void) {
 
 	sei();
 
-#ifdef DEBUG
-	int16_t lastEncoderValue = 0;
-#endif
 	while (1) {
-		//TODO: убрать delay, чтобы не пропустить команду по usart
+		//Такт главного цикла. Это НЕ просто задержка: motorProceed() вызывается раз за итерацию,
+		//и рампa OCR1B начисляется именно за вызов, поэтому задержка = скорость разгона
+		//(замерено под simavr: 15 -> 128 за 0.377 с; без задержки 0.007 с, что сорвёт шаги).
+		//Убирать только вместе с переводом рампы на реальное время (Timer0).
 		_delay_ms(40);
 		//ledToggle();
 
 		const char* cmd = usartGetReceivedCommand();
 		if (cmd) {
-			if (checkCommand(CMD_GO_FORWARD, cmd)) {
-				motorStart(true);
-				usartPrintln(RESP_OK);
-			} else if (checkCommand(CMD_GO_REVERSE, cmd)) {
-				motorStart(false);
-				usartPrintln(RESP_OK);
-			} else if (checkCommand(CMD_STOP, cmd)) {
-				motorStop();
-				usartPrintln(RESP_OK);
-			} else if (checkCommand(CMD_GOTO, cmd)) {
-                int16_t position = parseInt(cmd + strlen(CMD_GOTO));
-                motorGoTo(position);
-#ifdef DEBUG
-                usartPrint("Go to: ");
-                printInt(position, buf);
-                usartPrintln(buf);
-#endif
-                usartPrintln(RESP_OK);
-            } else if (checkCommand(CMD_GET_ENCODER_VALUE, cmd)) {
-                printInt(encoderGetValue(), buf);
-                usartPrintln(buf);
-            } else if (checkCommand(CMD_IS_ON_CENTER, cmd)) {
-                printInt(limitsIsOnCenter(), buf);
-                usartPrintln(buf);
-            } else if (checkCommand(CMD_IS_MOVING, cmd)) {
-                printInt(motorIsMoving(), buf);
-                usartPrintln(buf);
-            } else if (checkCommand(CMD_FIND_CENTER, cmd)) {
-			    motorFindCenter();
-                usartPrintln(RESP_OK);
-			} else {
-				usartPrint("Unrecognized command: ");
-				usartPrintln(cmd);
-			}
+			processCommand(cmd);
 		}
 
 		if (buttonsIsForwardPressed()) {
@@ -89,8 +98,8 @@ int main (void) {
 		int16_t encoderValue = encoderGetValue();
 		if (encoderValue != lastEncoderValue) {
 			lastEncoderValue = encoderValue;
-            usartPrint("Encoder value: ");
-            printInt(encoderValue, buf);
+			usartPrint("Encoder value: ");
+			printInt(encoderValue, buf);
 			usartPrintln(buf);
 		}
 #endif

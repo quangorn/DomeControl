@@ -7,13 +7,15 @@
 #include <avr/io.h>
 
 static uint8_t motorTargetSpeed;
-static bool motorTargetDirection = DIRECTION_FORWARD;
+static Direction motorTargetDirection = DIRECTION_FORWARD;
 static bool motorGoToEnabled = false;
 static bool motorFindingCenter = false;
 static int16_t motorTargetPosition = ENCODER_CENTER_POSITION;
 
-bool motorGetDirection() {
-	return (bool)(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN));
+Direction motorGetDirection() {
+	//The relay is high in reverse. Test the bit instead of casting it: the mask is 1 << MOTOR_DIR_PIN
+	//(2 for PB1), which is not a Direction value.
+	return (OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN)) ? DIRECTION_REVERSE : DIRECTION_FORWARD;
 }
 
 //совпадает ли текущее направление вращения мотора с установленным
@@ -22,7 +24,7 @@ bool motorIsDirectionRight() {
 }
 
 void motorSetDirection() {
-	if (motorTargetDirection) {
+	if (motorTargetDirection == DIRECTION_REVERSE) {
 		OUTPORT(MOTOR_DIR_PORT) |= (1 << MOTOR_DIR_PIN);
 	} else {
 		OUTPORT(MOTOR_DIR_PORT) &= ~(1 << MOTOR_DIR_PIN);
@@ -34,17 +36,17 @@ void motorInit() {
 	DDRPORT(MOTOR_STEP_PORT) |= 1 << MOTOR_STEP_PIN;
 	DDRPORT(MOTOR_DIR_PORT) |= 1 << MOTOR_DIR_PIN;
 
-	//set none-inverting mode and fast PWM Mode
+	//set none-inverting mode and phase correct PWM 10-bit (WGM = 0011 with WGM12 = 0, not fast PWM)
 	TCCR1A |= (1 << WGM11) | (1 << WGM10);
 
-	//set prescaler to 1024
+	//set prescaler to 1024; CS00/CS02 are the Timer0 names for the Timer1 bits CS10/CS12
 	TCCR1B |= (1 << CS00) | (1 << CS02);
 
 	motorTargetSpeed = settings.motorStartSpeed;
 	OCR1B = motorTargetSpeed;
 }
 
-void motorStart(bool direction) {
+void motorStart(Direction direction) {
 	motorGoToEnabled = false;
 	motorFindingCenter = false;
 	motorTargetSpeed = settings.motorMaxSpeed;
@@ -117,7 +119,7 @@ void motorProceed() {
 	}
 }
 
-void motorToggle(bool direction) {
+void motorToggle(Direction direction) {
 	if (motorIsStarted()) {
 		motorStop();
 	} else {
