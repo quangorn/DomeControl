@@ -8,3 +8,4 @@ ascom/ASCOM.Altair.Dome/bin/*
 ascom/ASCOM.Altair.Dome/obj/*
 ascom/DomeTest/bin/*
 ascom/DomeTest/obj/*
+__pycache__/
