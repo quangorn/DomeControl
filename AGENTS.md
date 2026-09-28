@@ -10,8 +10,7 @@ described below, update this file in the same change. The procedure is in [§11]
 
 | Field | Value |
 | --- | --- |
-| Verified against commit | `d90ba84` (`test plan and agent guide updated for l3 spike`), plus the uncommitted review fixes |
-| Last review date | 2026-09-28 |
+| Last review date | 2026-09-29 |
 | Scope | the whole repository: `firmware/`, `ascom/`, `pcb/` |
 | Language | **English only** — every edit, including small fixes (see [§11.3](#113-editing-rules)) |
 
@@ -49,7 +48,7 @@ lists every place a protocol change has to be made.
 | `pcb/*.lay6` | Binary board files — **do not edit as text** |
 | `test_plan.md` | Test strategy, levels and priorities — L0, L1 and the L3 spike |
 | `changelog.md` | Behaviour changes only, in Russian, for driver/ASCOM clients — not a commit log |
-| `REVIEW_NOTES.md` | Findings from the 2026-09-28 code review: what was fixed, and what still needs the hardware |
+| `REVIEW_NOTES.md` | Findings from the 2026-09-28 review, extended 2026-09-29: what was fixed, and what is still open — §2/§7 need the bench, §10–§12 do not |
 | `tools/`, `firmware/test/` | Host checks: L0 contract/convention guards, L1 suites with the fake AVR layer (`test_plan.md` §4–§5), L3 simavr harness and spike (`firmware/test/sim/`, §7) |
 
 ## 3. Build and run
@@ -325,7 +324,7 @@ it makes every later agent session act on rules that are no longer true.
 ### 11.2. Checklist before finishing a task
 
 1. Walk the table in 11.1 and update the affected sections.
-2. Update the "Document state" table in §0: commit (`git rev-parse --short HEAD`), date, scope.
+2. Update the "Document state" table in §0: date and scope.
 3. Make sure the file contains **no claim you have not checked against the code**: paths, function
    names, constant values, pin numbers. Anything uncertain must be verified or explicitly marked as
    needing verification.
@@ -337,9 +336,8 @@ it makes every later agent session act on rules that are no longer true.
 
 * **Write in English.** Every change to this file — including a one-line fix — is written in English,
   so the document never drifts back into a mixed or translated state.
-* Keep the file **reviewable**: aim for at most ~300 lines (it is already close to that limit, so new
-  material must be paid for by deleting what is stale). Do not paste code, long listings, or
-  paraphrases of source comments.
+* Keep the file **reviewable**: aim for at most ~500 lines. New material should still pay for itself
+  by deleting what is stale. Do not paste code, long listings, or paraphrases of source comments.
 * Do not duplicate facts that one read of the code reveals. Duplicate only what is expensive to
   reconstruct: the protocol contract, the "what lives where" invariants, environment limits, pitfalls.
 * One topic, one place. When the file contradicts itself, fix it instead of adding a caveat.
