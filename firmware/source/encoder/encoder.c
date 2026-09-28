@@ -6,7 +6,7 @@
 #include <util/atomic.h>
 
 static volatile bool encoderCountingEnabled = false;
-static volatile bool encoderDirection = DIRECTION_FORWARD;
+static volatile Direction encoderDirection = DIRECTION_FORWARD;
 static volatile int16_t encoderValue = ENCODER_CENTER_POSITION;
 
 void encoderInit() {
@@ -19,7 +19,7 @@ void encoderInit() {
 	GICR |= 1 << INT0;
 }
 
-void encoderEnableCounting(bool direction) {
+void encoderEnableCounting(Direction direction) {
 	encoderDirection = direction;
 	encoderCountingEnabled = true;
 }

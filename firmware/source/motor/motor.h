@@ -4,15 +4,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "source/common/definitions.h"
 
 void motorInit();
-void motorStart(bool direction);
+void motorStart(Direction direction);
 void motorStop();
 void motorProceed();
 bool motorIsStarted();
 bool motorIsMoving();
 //stop if started and start if stopped
-void motorToggle(bool direction);
+void motorToggle(Direction direction);
 void motorGoTo(int16_t position);
 void motorFindCenter();
 

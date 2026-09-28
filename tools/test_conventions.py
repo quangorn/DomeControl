@@ -9,7 +9,9 @@ Grep guards over the firmware, cheap enough to run anywhere:
    blocks while waiting for the transmit interrupt, so it hangs with interrupts off
    (AGENTS.md section 8.5);
 3. every module under ``firmware/source/`` declares an ``<module>Init*()`` function
-   and that function is called from ``main()`` (AGENTS.md section 4).
+   and that function is called from ``main()`` (AGENTS.md section 4);
+4. no ``true``/``false`` literal reaches a ``Direction`` parameter -- the compiler does
+   not object (``true`` is a valid ``DIRECTION_REVERSE``), so only a grep can stop it.
 
 Usage:
     python3 tools/test_conventions.py [--repo-root DIR]
@@ -28,6 +30,12 @@ SPRINTF_RE = re.compile(r"\b(?:sprintf|snprintf|vsprintf|vsnprintf)\b")
 USART_PRINT_RE = re.compile(r"\busartPrint\w*\s*\(")
 SEI_RE = re.compile(r"\bsei\s*\(\s*\)")
 MAIN_SIGNATURE_RE = re.compile(r"\bint\s+main\s*\([^;{]*\)")
+# A Direction parameter must be given a DIRECTION_* constant. C happily converts a bool to
+# the enum, and `true` is a *valid* DIRECTION_REVERSE, so this is the only place the
+# mistake can be caught before it ships.
+DIRECTION_CALL_RE = re.compile(
+    r"\b(?:motorStart|motorToggle|encoderEnableCounting)\s*\(\s*(true|false)\s*\)"
+)
 
 MODULES_TO_SKIP = {"common"}
 SOURCE_SUFFIXES = (".c", ".h")
@@ -83,11 +91,17 @@ def function_body(text: str, signature_re: re.Pattern[str]):
     return None, None
 
 
-def check_no_sprintf(report: Report, root: Path) -> int:
-    """1. No sprintf family in the firmware."""
+def firmware_sources(root: Path, report: Report) -> list[Path]:
+    """The production firmware sources, i.e. everything the AVR build compiles."""
     sources = sorted((root / "firmware/source").rglob("*"))
     sources = [p for p in sources if p.is_file() and p.suffix in SOURCE_SUFFIXES]
     report.check(bool(sources), f"no firmware sources found under {root / 'firmware/source'}")
+    return sources
+
+
+def check_no_sprintf(report: Report, root: Path) -> int:
+    """1. No sprintf family in the firmware."""
+    sources = firmware_sources(root, report)
     for path in sources:
         text = read(path)
         for match in SPRINTF_RE.finditer(text):
@@ -95,6 +109,21 @@ def check_no_sprintf(report: Report, root: Path) -> int:
                 False,
                 f"{path.relative_to(root)}:{line_of(text, match.start())}: "
                 f"'{match.group(0)}' is banned in the firmware",
+            )
+    return len(sources)
+
+
+def check_direction_literals(report: Report, root: Path) -> int:
+    """4. No raw true/false where a Direction constant is required."""
+    sources = firmware_sources(root, report)
+    for path in sources:
+        text = read(path)
+        for match in DIRECTION_CALL_RE.finditer(text):
+            report.check(
+                False,
+                f"{path.relative_to(root)}:{line_of(text, match.start())}: "
+                f"'{match.group(0)}' passes a bool where a DIRECTION_* constant is required; "
+                f"'{match.group(1)}' is DIRECTION_REVERSE, not forward",
             )
     return len(sources)
 
@@ -166,6 +195,7 @@ def main() -> int:
     main_text = read(main_c)
 
     sources = check_no_sprintf(report, root)
+    check_direction_literals(report, root)
     check_usart_print_order(report, main_c)
     modules = check_module_inits(report, source_dir, main_text)
 

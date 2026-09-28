@@ -7,13 +7,15 @@
 #include <avr/io.h>
 
 static uint8_t motorTargetSpeed;
-static bool motorTargetDirection = DIRECTION_FORWARD;
+static Direction motorTargetDirection = DIRECTION_FORWARD;
 static bool motorGoToEnabled = false;
 static bool motorFindingCenter = false;
 static int16_t motorTargetPosition = ENCODER_CENTER_POSITION;
 
-bool motorGetDirection() {
-	return (bool)(OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN));
+Direction motorGetDirection() {
+	//The relay is high in reverse. Test the bit instead of casting it: the mask is 1 << MOTOR_DIR_PIN
+	//(2 for PB1), which is not a Direction value.
+	return (OUTPORT(MOTOR_DIR_PORT) & (1 << MOTOR_DIR_PIN)) ? DIRECTION_REVERSE : DIRECTION_FORWARD;
 }
 
 //совпадает ли текущее направление вращения мотора с установленным
@@ -22,7 +24,7 @@ bool motorIsDirectionRight() {
 }
 
 void motorSetDirection() {
-	if (motorTargetDirection) {
+	if (motorTargetDirection == DIRECTION_REVERSE) {
 		OUTPORT(MOTOR_DIR_PORT) |= (1 << MOTOR_DIR_PIN);
 	} else {
 		OUTPORT(MOTOR_DIR_PORT) &= ~(1 << MOTOR_DIR_PIN);
@@ -44,7 +46,7 @@ void motorInit() {
 	OCR1B = motorTargetSpeed;
 }
 
-void motorStart(bool direction) {
+void motorStart(Direction direction) {
 	motorGoToEnabled = false;
 	motorFindingCenter = false;
 	motorTargetSpeed = settings.motorMaxSpeed;
@@ -117,7 +119,7 @@ void motorProceed() {
 	}
 }
 
-void motorToggle(bool direction) {
+void motorToggle(Direction direction) {
 	if (motorIsStarted()) {
 		motorStop();
 	} else {

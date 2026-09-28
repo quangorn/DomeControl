@@ -3,9 +3,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "source/common/definitions.h"
 
 void encoderInit();
-void encoderEnableCounting(bool direction);
+void encoderEnableCounting(Direction direction);
 void encoderDisableCounting();
 
 int16_t encoderGetValue();
