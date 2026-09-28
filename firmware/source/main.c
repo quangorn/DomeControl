@@ -14,10 +14,10 @@ static void processCommand(const char* cmd) {
 	char buf[MAX_RESPONSE_LENGTH];
 
 	if (checkCommand(CMD_GO_FORWARD, cmd)) {
-		motorStart(true);
+		motorStart(DIRECTION_FORWARD);
 		usartPrintln(RESP_OK);
 	} else if (checkCommand(CMD_GO_REVERSE, cmd)) {
-		motorStart(false);
+		motorStart(DIRECTION_REVERSE);
 		usartPrintln(RESP_OK);
 	} else if (checkCommand(CMD_STOP, cmd)) {
 		motorStop();

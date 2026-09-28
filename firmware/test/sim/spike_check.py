@@ -242,36 +242,40 @@ def main():
         check(data == b"100\r\n", "a held level must not re-anchor", "got %r" % data)
 
         print("step 4b: an encoder pulse on INT0 (PD2) moves the value")
-        # main.c passes a raw bool to motorStart(): `GOF#` is motorStart(true) = DIRECTION_REVERSE and
-        # `GOR#` is motorStart(false) = DIRECTION_FORWARD, the opposite of `motorGoTo` and of the
-        # buttons. The emulator shows it directly: GOF# sets the direction relay and counts down.
-        harness.uart.send(b"GOF#")
+        # main.c passes the DIRECTION_* constants, so `GOF#` counts the encoder up and `GOR#` counts
+        # it down, the same way the buttons and motorGoTo() do. The dome sits on the +100 forward
+        # limit anchor here, and motorProceed() stops a forward move at that value, so the first
+        # command walks the encoder off the limit and the second walks it back.
+        harness.uart.send(b"GOR#")
         data = harness.uart.receive(b"\r\n", 5.0)
-        check(data == b"OK\r\n", "GOF# -> OK", "got %r" % data)
+        check(data == b"OK\r\n", "GOR# -> OK", "got %r" % data)
         harness.command("pulse D 2 40")         # `ok` comes back when the pin is released
         harness.command("wait 200")
         harness.uart.send(b"GEV#")
         data = harness.uart.receive(b"\r\n", 5.0)
-        check(data == b"99\r\n", "GOF# + one step from the +100 anchor -> 99 (GOF is reversed)",
+        check(data == b"99\r\n", "GOR# + one step from the +100 anchor -> 99 (reverse counts down)",
               "got %r" % data)
         harness.uart.send(b"ST#")
         harness.uart.receive(b"\r\n", 5.0)
         harness.command("wait 400")
 
-        harness.uart.send(b"GOR#")
+        harness.uart.send(b"GOF#")
         harness.uart.receive(b"\r\n", 5.0)
         harness.command("pulse D 2 40")
         harness.command("wait 200")
         harness.uart.send(b"GEV#")
         data = harness.uart.receive(b"\r\n", 5.0)
-        check(data == b"100\r\n", "GOR# + one step -> 100 (the opposite direction)", "got %r" % data)
+        check(data == b"100\r\n", "GOF# + one step -> 100 (forward counts up)", "got %r" % data)
         harness.uart.send(b"ST#")
         harness.uart.receive(b"\r\n", 5.0)
         harness.command("wait 400")
 
         print("step 5: the motor output is driven (registers) and the relay is visible on the pin")
         harness.command("logclear")
-        harness.uart.send(b"GOF#")
+        # GOR# (reverse) is the command that moves here: the encoder sits on the +100 forward limit
+        # anchor, so GOF# would be stopped by motorProceed() before it ramps, and reverse is the
+        # direction whose relay state (PB1 = 1) is the one worth watching.
+        harness.uart.send(b"GOR#")
         harness.uart.receive(b"\r\n", 5.0)
         harness.command("wait 300")
         # simavr raises no Timer1 compare-output events and never drives PB2, so the PWM waveform
@@ -281,12 +285,12 @@ def main():
         check(tccr1a & 0x20, "COM1B1 enables the OC1B output (TCCR1A=0x%02x)" % tccr1a)
         check(ocr1b > 15, "OCR1B ramps above the start speed (OCR1B=%d)" % ocr1b)
         edges = harness.pin_edges(bit=1)
-        check("1" in edges, "PB1 sets the direction relay after GOF#", "edges: %s" % edges)
+        check("1" in edges, "PB1 sets the direction relay after GOR#", "edges: %s" % edges)
         harness.uart.send(b"ST#")
         harness.uart.receive(b"\r\n", 5.0)
         harness.command("wait 400")
         edges = harness.pin_edges(bit=1)
-        check(edges[-1] == "0", "PB1 clears again after ST#", "edges: %s" % edges)
+        check(bool(edges) and edges[-1] == "0", "PB1 clears again after ST#", "edges: %s" % edges)
     finally:
         harness.close()
 
