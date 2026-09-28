@@ -36,10 +36,10 @@ void motorInit() {
 	DDRPORT(MOTOR_STEP_PORT) |= 1 << MOTOR_STEP_PIN;
 	DDRPORT(MOTOR_DIR_PORT) |= 1 << MOTOR_DIR_PIN;
 
-	//set none-inverting mode and fast PWM Mode
+	//set none-inverting mode and phase correct PWM 10-bit (WGM = 0011 with WGM12 = 0, not fast PWM)
 	TCCR1A |= (1 << WGM11) | (1 << WGM10);
 
-	//set prescaler to 1024
+	//set prescaler to 1024; CS00/CS02 are the Timer0 names for the Timer1 bits CS10/CS12
 	TCCR1B |= (1 << CS00) | (1 << CS02);
 
 	motorTargetSpeed = settings.motorStartSpeed;
