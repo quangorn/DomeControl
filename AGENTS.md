@@ -10,7 +10,7 @@ described below, update this file in the same change. The procedure is in [§11]
 
 | Field | Value |
 | --- | --- |
-| Verified against commit | `4486ee7` (`l3 simavr harness and spike added`, 2026-09-28) |
+| Verified against commit | `d90ba84` (`test plan and agent guide updated for l3 spike`), plus the uncommitted review fixes |
 | Last review date | 2026-09-28 |
 | Scope | the whole repository: `firmware/`, `ascom/`, `pcb/` |
 | Language | **English only** — every edit, including small fixes (see [§11.3](#113-editing-rules)) |
@@ -48,6 +48,8 @@ lists every place a protocol change has to be made.
 | `ascom/DomeTest/` | Test WinForms app, a client through `ASCOM.DriverAccess.Dome` |
 | `pcb/*.lay6` | Binary board files — **do not edit as text** |
 | `test_plan.md` | Test strategy, levels and priorities — L0, L1 and the L3 spike |
+| `changelog.md` | Behaviour changes only, in Russian, for driver/ASCOM clients — not a commit log |
+| `REVIEW_NOTES.md` | Findings from the 2026-09-28 code review: what was fixed, and what still needs the hardware |
 | `tools/`, `firmware/test/` | Host checks: L0 contract/convention guards, L1 suites with the fake AVR layer (`test_plan.md` §4–§5), L3 simavr harness and spike (`firmware/test/sim/`, §7) |
 
 ## 3. Build and run
@@ -73,7 +75,10 @@ The essentials from `CMakeLists.txt`:
 * `MCU=atmega8`, `F_CPU=12000000`;
 * `-Os -std=gnu11 -Wall -Werror`, plus the mandatory `-fpack-struct -fshort-enums -funsigned-char`;
 * linking: `-Wl,--relax,--gc-sections -Wl,-u,vfprintf -lprintf_min`;
-* the **Debug** configuration adds `-DDEBUG` (verbose USART logging), **Release** adds `-DNDEBUG`;
+* the **Release** configuration sets `-DNDEBUG` (and drops CMake's default `-O3`). Neither
+  configuration defines `DEBUG`: the `#ifdef DEBUG` trace in `main.c` writes to the same USART as
+  the protocol, so enabling it makes the firmware answer `IM#` with `Encoder value: …` and the driver
+  throw. Re-enable it by hand with `-DCMAKE_C_FLAGS_DEBUG="-DDEBUG"` only for bench work;
 * sources are collected with `file(GLOB_RECURSE ... "source/*.c" "source/*.h")` — a new file is picked
   up automatically, but **only after CMake is re-run** (regenerate).
 
@@ -120,18 +125,32 @@ One pattern for every module (`buttons`, `encoder`, `led`, `limits`, `motor`, `s
 
 `main.c` is the only orchestrator: it polls `usartGetReceivedCommand()`, hands the command to
 `static void processCommand(const char* cmd)` (the `if / else if` chain using `checkCommand()`), reads the
-buttons, then calls `limitsProceed()` and `motorProceed()`. The main loop contains `_delay_ms(40)` (see
-the TODO in [§9](#9-open-todos)).
+buttons, then calls `limitsProceed()` and `motorProceed()`.
+
+**The main loop period is `_delay_ms(40)`, deliberately.** `motorProceed()` runs once per iteration and
+the `OCR1B` ramp is applied per call, so the delay *is* the ramp clock, not just command latency —
+measured under simavr, 15 → 128 takes 0.377 s with it and 0.007 s without, a 54× jump that would
+stall a STEP/DIR drive. It also sets the limit-switch poll rate. Shortening or removing it is only
+safe once the ramp runs off a real timebase (Timer0 or a cycle counter).
 
 Details that matter when editing:
 
 * **MCU pins** are defined only in `common/definitions.h` (port letter + bit number). Access goes
   through the `OUTPORT/INPORT/DDRPORT` macros from `common/utils.h`. Do not hard-code registers in
   modules.
-* **Motor**: Timer1, fast PWM, `OC1B` (PB2) as the step output; PB1 is direction. Prescaler 1024.
+* **Motor**: Timer1, phase correct PWM 10-bit (WGM = `0011`; `OC1B`, PB2, is the step output), PB1 is
+  direction. Prescaler 1024 (`CS00`/`CS02` in `motor.c` are the Timer0 names for Timer1's `CS10`/`CS12`).
   The current speed is the `OCR1B` register. PWM is enabled/disabled through the `COM1B1` bit as the
-  motor starts and stops. Ramping uses `settings.motorSpeedStepUp/Down`.
+  motor starts and stops. Ramping uses `settings.motorSpeedStepUp/Down`; one `motorProceed()` call per
+  main-loop iteration, so the ramp rate follows the loop and not the prescaler.
   `motorIsMoving()` is `OCR1B > settings.motorStartSpeed`, not a separate flag.
+  `motorStart(Direction)` and `encoderEnableCounting(Direction)` take the `Direction` enum
+  (`DIRECTION_FORWARD` / `DIRECTION_REVERSE`, defined in `common/definitions.h`). The enum replaced a
+  pair of inverted bools (`DIRECTION_FORWARD` was `false`), which is how `GOF`/`GOR` ended up reversed.
+  Note that C does **not** reject a bool here: `true` is a valid `DIRECTION_REVERSE`, so the L0 guard
+  `tools/test_conventions.py` enforces the constants instead ([§3](#3-build-and-run)).
+  `motorGetDirection()` tests the PB1 bit and returns a `Direction`; do not cast the masked port value
+  to the enum, the mask is `1 << MOTOR_DIR_PIN` (2), not a `Direction`.
 * **Encoder**: `INT0` on a rising edge (PD2), counting only while `encoderEnableCounting()` is active;
   the value is a signed `int16_t`, incremented or decremented according to the motion direction.
 * **Limit switches**: active low (inputs with pull-ups). When one triggers, `limitsProceed()`
@@ -185,17 +204,21 @@ And update the table above.
   They are read in `ReadProfile()` and written in `WriteProfile()` (called from `SetupDialog`).
 * **Logging** uses a `TraceLogger` named "Altair"; `LogMessage(...)` is called in almost every method.
   New methods should be logged the same way.
-* **Communication**: `ASCOM.Utilities.Serial` at 115200. `SendCommand(cmd)` appends `#` and calls the
-  public `CommandString`, which does `ClearBuffers()`, `Transmit()` and `ReceiveTerminated("\n")`.
+* **Communication**: `ASCOM.Utilities.Serial` at 115200. `SendCommand(cmd)` calls the public
+  `CommandString(cmd, false)`, which appends `END_COMMAND_CHARACTER` (`#`), holds a `lock` on
+  `serialPort` for the whole transaction (clients poll and command from different threads, and the
+  firmware has a single command buffer with no queue), then does `ClearBuffers()`, `Transmit()` and
+  `ReceiveTerminated("\n")`.
 * Response wrappers: `SendCommandWithSimpleResp` (expects `OK`), `SendCommandWithIntResp`
   (`Int16.Parse`), `SendCommandWithBoolResp` (`!= 0`).
 * **Azimuth ↔ encoder conversion** — `EncoderValueToAzimuth` / `AzimuthToEncoderValue` with the
   constants `homePostionAzimuth = 180` and `encoderStepAzimuthDegrees = 0.533` (360° / 675 teeth;
   12.58 mm per tooth, 8500 mm perimeter). `AzimuthToEncoderValue` takes the short path (delta > 180°
-  → −360°).
+  → −360°); `EncoderValueToAzimuth` normalises the result into `[0, 360)`.
 * **Implemented**: `SlewToAzimuth` → `GoTo`, `FindHome`/`Park` → `FindCenter`, `AbortSlew` →
   `MotorStop`. `OpenShutter`/`CloseShutter` only flip the in-memory `domeShutterState` flag — there is
-  no hardware shutter control, so `ShutterStatus` lies whenever the real shutter state differs.
+  no hardware shutter control, so `ShutterStatus` lies whenever the real shutter state differs and
+  `CanSetShutter` reports `false`.
 * **Not implemented** (throws): `Altitude`, `Slaved`, `SetPark`, `SlewToAltitude`, `SyncToAzimuth`,
   `CommandBlind`, `CommandBool`, `Action`.
 * `SetupDialogForm` lists the available COM ports and a trace checkbox; the port is saved to the
@@ -236,10 +259,14 @@ And update the table above.
 7. The encoder is relative to the last limit switch: the absolute azimuth is only valid after `FC` or
    after a limit switch fires. `int16_t` bounds the range — if the position runs away, overflow sends
    `GoTo` in the wrong direction.
-8. The limit positions (`±100`) are defaults from `settings.c`, not measured values; when the mechanics
-   change they must be updated in C# too (`encoderStepAzimuthDegrees`, `homePostionAzimuth`).
-9. `Altair Dome Setup.iss` contains an **absolute path** `E:\Projects\DomeControl\...` to the DLL — it
-   must be replaced on another machine before building the installer.
+8. The limit positions (`±100`) are defaults from `settings.c`, not measured values, and the dome cannot
+   rotate a full turn. `encoderStepAzimuthDegrees` in the driver assumes a 360° travel that the firmware
+   never allows: `SlewToAzimuth` outside `±53°` is silently clamped by `motorGoTo` and still reports
+   success. Measure the real travel before trusting either number. See `REVIEW_NOTES.md` §2.
+9. The L0 convention guard does not follow `#include`: it greps the whole `firmware/source` tree, so a
+   rule it enforces (`sprintf`, direction literals, module inits) is checked in files that are not
+   compiled into the target as well. A file under `firmware/source/` that is not part of the build
+   still has to satisfy it.
 10. `pcb/*.lay6` files are binary (Sprint Layout 6); diffing them or editing them as text is pointless.
 11. `bin/`, `obj/`, `out/`, `.vs/`, `.idea/`, `__pycache__/` and `firmware/cmake-build-*` are in
     `.gitignore`; never commit build artifacts.
@@ -247,18 +274,19 @@ And update the table above.
 
 ## 9. Open TODOs
 
-* `main.c`: remove `_delay_ms(40)` — it adds 40 ms to every property read and widens the window in
-  which a second packet overwrites the first (the receive buffer has no queue).
-* `main.c:16–20`: `CMD_GO_FORWARD`/`CMD_GO_REVERSE` pass `true`/`false` to `motorStart()`, which mean
-  `DIRECTION_REVERSE`/`DIRECTION_FORWARD`: the `GOF#` command and the forward button rotate the dome in
-  opposite directions. Confirmed under simavr (`test_plan.md` §10.10, fix in §11 item 4).
 * `settings.h`: persist settings to EEPROM (`settingsInitDefault()` is a temporary solution); there are
   no USART commands to read or write settings.
 * `Driver.cs`: move the hard-coded constants (`serialSpeed`, `homePostionAzimuth`,
-  `encoderStepAzimuthDegrees`) into configuration; fill in the driver metadata; implement
+  `encoderStepAzimuthDegrees`) into configuration; replace the placeholder `DriverInfo` text; implement
   `CommandBlind`/`CommandBool` or consciously leave the stubs.
-* There is no hardware shutter control — `ShutterStatus` always reflects an in-memory flag.
-* `Altair Dome Setup.iss`: installer paths and file list.
+* There is no hardware shutter control — `ShutterStatus` always reflects an in-memory flag, and
+  `CanSetShutter` reports `false`.
+* `Altair Dome Setup.iss`: the installer file list still needs the driver's own support files (the DLL
+  and `ReadMe.htm` are in place, taken relative to the script via `{src}`).
+* The dome cannot rotate a full turn: the hard-coded `±100` in `settings.c` and the 360° assumed by
+  `encoderStepAzimuthDegrees` are unrelated numbers, and the limits are unmeasured defaults
+  ([§8.8](#8-pitfalls)). Measure the travel, put it in `settings.c`, and tell the client that the dome
+  stopped at a boundary instead of silently reporting success. See `REVIEW_NOTES.md` §2.
 
 ## 10. Agent workflow
 
