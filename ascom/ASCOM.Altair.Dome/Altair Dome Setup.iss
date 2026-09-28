@@ -34,9 +34,11 @@ Name: "{cf}\ASCOM\Uninstall\Dome\Altair Dome"
 ; TODO: Add subfolders below {app} as needed (e.g. Name: "{app}\MyFolder")
 
 [Files]
-Source: "E:\Projects\DomeControl\ascom\ASCOM.Altair.Dome\bin\Release\ASCOM.Altair.Dome.dll"; DestDir: "{app}"
+; {src} is the directory holding this script, so the installer builds on any machine and after any
+; clone. Build the driver in Release first: the paths below are relative to the project directory.
+Source: "{src}\bin\Release\ASCOM.Altair.Dome.dll"; DestDir: "{app}"
 ; Require a read-me HTML to appear after installation, maybe driver's Help doc
-Source: "E:\Projects\DomeControl\ascom\ASCOM.Altair.Dome\ReadMe.htm"; DestDir: "{app}"; Flags: isreadme
+Source: "{src}\ReadMe.htm"; DestDir: "{app}"; Flags: isreadme
 ; TODO: Add other files needed by your driver here (add subfolders above)
 
 
