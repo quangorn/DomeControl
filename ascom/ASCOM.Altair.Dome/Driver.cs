@@ -26,6 +26,7 @@ using ASCOM.Astrometry;
 using ASCOM.Astrometry.AstroUtils;
 using ASCOM.DeviceInterface;
 using ASCOM.Utilities;
+using DomeControl.Protocol;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -73,15 +74,6 @@ namespace ASCOM.Altair
 
         //TODO: move to config
         internal const SerialSpeed serialSpeed = SerialSpeed.ps115200;
-        internal const double homePostionAzimuth = 180;
-        //12.58mm each tooth
-        //8500mm perimeter
-        //675 total teeth
-        internal const double encoderStepAzimuthDegrees = 0.533;
-
-        // End of a command frame; mirrors END_COMMAND_CHARACTER in the firmware
-        // (firmware/source/common/definitions.h)
-        private const char END_COMMAND_CHARACTER = '#';
 
         /// <summary>
         /// Private variable to hold an ASCOM Utilities object
@@ -99,6 +91,12 @@ namespace ASCOM.Altair
         internal TraceLogger tl;
 
         private Serial serialPort;
+
+        /// <summary>
+        /// The USART protocol, over <see cref="serialPort"/>. Built on connect and dropped on
+        /// disconnect, so it is never used with a port that is not open.
+        /// </summary>
+        private DomeProtocol protocol;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Altair"/> class.
@@ -193,18 +191,10 @@ namespace ASCOM.Altair
             {
                 throw new ASCOM.NotConnectedException();
             }
-            // ASCOM calls the driver from more than one thread (a client polls Slewing while another
-            // issues AbortSlew). The firmware has a single command buffer and ClearBuffers() drops
-            // whatever the other thread has not read yet, so the whole transaction is serialised here.
-            lock (serialPort)
-            {
-                // `raw` means the caller supplies the terminator itself; otherwise the firmware needs
-                // END_COMMAND_CHARACTER ('#') to close the frame.
-                string frame = raw ? command : command + END_COMMAND_CHARACTER;
-                serialPort.ClearBuffers();
-                serialPort.Transmit(frame);
-                return serialPort.ReceiveTerminated("\n");
-            }
+            // The framing, the lock and the transaction live in DomeProtocol (ascom/DomeControl.Protocol),
+            // which carries no ASCOM type and is tested on every host; see SerialTransport for the
+            // adapter and AGENTS.md §6.
+            return protocol.CommandString(command, raw);
         }
 
         public void Dispose()
@@ -223,6 +213,7 @@ namespace ASCOM.Altair
                 }
                 serialPort = null;
             }
+            protocol = null;
 
             // Clean up the trace logger and util objects
             tl.Enabled = false;
@@ -257,21 +248,24 @@ namespace ASCOM.Altair
                         serialPort.PortName = comPort;
                         serialPort.Speed = serialSpeed;
                         serialPort.Connected = true;
+                        protocol = new DomeProtocol(new SerialTransport(serialPort));
 
-                        int encoderValue = GetEncoderValue();                        
+                        int encoderValue = GetEncoderValue();
                         LogMessage("Connected Set", "Connected, encoder value: {0}", encoderValue);
                     }
                     catch (Exception ex)
                     {
                         if (serialPort != null)
                             serialPort.Connected = false;
+                        protocol = null;
                         throw new ASCOM.NotConnectedException("Serial port connection error", ex);
-                    }                    
+                    }
                 }
                 else
                 {
                     if (serialPort != null)
                         serialPort.Connected = false;
+                    protocol = null;
                     LogMessage("Connected Set", "Disconnecting from port {0}", comPort);
                 }
             }
@@ -371,7 +365,7 @@ namespace ASCOM.Altair
             get
             {
                 Int16 encoderValue = GetEncoderValue();
-                double azimuth = EncoderValueToAzimuth(encoderValue);
+                double azimuth = protocol.EncoderValueToAzimuth(encoderValue);
                 LogMessage("Azimuth Get", "Value: {0}; raw: {1}", azimuth, encoderValue);
                 return azimuth;
             }
@@ -522,7 +516,7 @@ namespace ASCOM.Altair
         public void SlewToAzimuth(double azimuth)
         {
             LogMessage("SlewToAzimuth", azimuth.ToString());
-            Int16 targetEncoderValue = AzimuthToEncoderValue(azimuth);
+            Int16 targetEncoderValue = protocol.AzimuthToEncoderValue(azimuth);
             GoTo(targetEncoderValue);
         }
 
@@ -546,61 +540,54 @@ namespace ASCOM.Altair
         // here are some useful properties and methods that can be used as required
         // to help with driver development
 
-        private string SendCommand(string command)
-        {
-            // CommandString adds the terminator when raw is false
-            return CommandString(command, false);
-        }
+        // The wrappers below are logging and exception translation only: the framing, the response parsing
+        // and the azimuth conversion live in DomeProtocol (ascom/DomeControl.Protocol), where they
+        // are covered by ascom/DomeControl.Protocol.Tests.
+        //
+        // A client sees ASCOM.DriverException either way. The inner exception is now always carried
+        // (a bad response always has one), where before only the integer path passed it on.
 
-        private void SendCommandWithSimpleResp(string command)
+        private T Translate<T>(Func<T> command)
         {
-            string resp = SendCommand(command).Trim();
-            if (!resp.Equals(Responses.OK))
-                throw new ASCOM.DriverException(string.Format("Bad command {0} response: {1}", command, resp));
-        }
-
-        private Int16 SendCommandWithIntResp(string command)
-        {
-            string resp = SendCommand(command);
-            Int16 value;
             try
             {
-                value = Int16.Parse(resp);
+                return command();
             }
-            catch (Exception e) 
+            catch (DomeProtocolException e)
             {
-                if (e is FormatException || e is OverflowException)
-                {
-                    throw new ASCOM.DriverException(
-                        string.Format("Bad command {0} int response: {1}", command, resp),
-                        e);
-                }
-                throw e;
+                throw new ASCOM.DriverException(e.Message, e);
             }
-            return value;
         }
 
-        private bool SendCommandWithBoolResp(string command)
+        private void Translate(Action command)
         {
-            return SendCommandWithIntResp(command) != 0;
+            try
+            {
+                command();
+            }
+            catch (DomeProtocolException e)
+            {
+                throw new ASCOM.DriverException(e.Message, e);
+            }
         }
 
         private Int16 GetEncoderValue()
         {
-            Int16 value = SendCommandWithIntResp(Commands.GET_ENCODER_VALUE);
+            Int16 value = Translate(() => protocol.GetEncoderValue());
             LogMessage("GetEncoderValue", "Value: {0}", value);
             return value;
         }
 
         private bool IsOnCenter()
         {
-            bool value = SendCommandWithBoolResp(Commands.IS_ON_CENTER);
+            bool value = Translate(() => protocol.IsOnCenter());
             LogMessage("IsOnCenter", value.ToString());
             return value;
         }
+
         private bool IsMoving()
         {
-            bool value = SendCommandWithBoolResp(Commands.IS_MOVING);
+            bool value = Translate(() => protocol.IsMoving());
             LogMessage("IsMoving", value.ToString());
             return value;
         }
@@ -608,38 +595,19 @@ namespace ASCOM.Altair
         private void MotorStop()
         {
             LogMessage("MotorStop", "Called");
-            SendCommandWithSimpleResp(Commands.STOP);
+            Translate(() => protocol.MotorStop());
         }
 
         private void FindCenter()
         {
             LogMessage("FindCenter", "Called");
-            SendCommandWithSimpleResp(Commands.FIND_CENTER);
+            Translate(() => protocol.FindCenter());
         }
 
         private void GoTo(Int16 targetEncoderPosition)
         {
             LogMessage("GoTo", targetEncoderPosition.ToString());
-            SendCommandWithSimpleResp(string.Format("{0}{1}", Commands.GOTO, targetEncoderPosition));
-        }
-
-        private double EncoderValueToAzimuth(Int16 encoderValue)
-        {
-            double azimuth = homePostionAzimuth + encoderStepAzimuthDegrees * encoderValue;
-            // Normalise into [0, 360): the dome range is currently +-100 steps, so the lower branch
-            // never fires today, but a wider range would return values above 360 to the client.
-            azimuth %= 360.0;
-            if (azimuth < 0)
-                azimuth += 360.0;
-            return azimuth;
-        }
-
-        private Int16 AzimuthToEncoderValue(double azimuth)
-        {
-            double azimuthDelta = azimuth - homePostionAzimuth;
-            if (azimuthDelta > 180)
-                azimuthDelta -= 360;
-            return (Int16)Math.Round(azimuthDelta / encoderStepAzimuthDegrees);
+            Translate(() => protocol.GoTo(targetEncoderPosition));
         }
 
         #region ASCOM Registration

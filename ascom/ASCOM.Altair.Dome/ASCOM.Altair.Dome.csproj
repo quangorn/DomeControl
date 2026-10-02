@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -81,7 +81,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Commands.cs" />
     <Compile Include="Driver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -94,7 +93,14 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="Responses.cs" />
+    <Compile Include="SerialTransport.cs" />
+    <!-- The protocol layer is compiled into the driver from its own sources rather than referenced
+         as a built assembly: this is an old-style net472 csproj, and this keeps the Visual Studio
+         solution building with no new project and no prebuilt DLL. The same sources build into
+         ascom/DomeControl.Protocol (netstandard2.0) for the tests, which run on Linux. -->
+    <Compile Include="..\DomeControl.Protocol\**\*.cs">
+      <Link>Protocol\%(Filename)%(Extension)</Link>
+    </Compile>
     <Compile Include="SetupDialogForm.cs">
       <SubType>Form</SubType>
     </Compile>

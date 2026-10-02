@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- The ASCOM driver project is an old-style net472 csproj and compiles these same files into
+         itself (see its <Compile Include="..\DomeControl.Protocol\**\*.cs" />), so the language
+         level has to stay one an old-style project compiles. -->
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>DomeControl.Protocol</AssemblyName>
+    <RootNamespace>DomeControl.Protocol</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

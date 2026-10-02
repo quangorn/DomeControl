@@ -1,6 +1,10 @@
-﻿namespace ASCOM.Altair
+namespace DomeControl.Protocol
 {
-    static class Commands
+    /// <summary>
+    /// Command strings, a mirror of firmware/source/common/definitions.c.
+    /// tools/test_protocol_contract.py keeps the two in step; change one, change the other.
+    /// </summary>
+    public static class Commands
     {
         public const string GO_FORWARD = "GOF";
         public const string GO_REVERSE = "GOR";

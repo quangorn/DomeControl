@@ -111,7 +111,9 @@ def main() -> int:
     definitions_h = root / "firmware/source/common/definitions.h"
     definitions_c = root / "firmware/source/common/definitions.c"
     main_c = root / "firmware/source/main.c"
-    ascom_dir = root / "ascom/ASCOM.Altair.Dome"
+    # The C# side of the protocol lives in its own ASCOM-free assembly; the driver compiles the
+    # same sources (ascom/ASCOM.Altair.Dome.csproj, <Compile Include="..\DomeControl.Protocol\**" />).
+    ascom_dir = root / "ascom/DomeControl.Protocol"
     agents_md = root / "AGENTS.md"
 
     report = Report()
