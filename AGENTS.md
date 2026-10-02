@@ -350,7 +350,6 @@ partial change is caught mechanically rather than by reading.
     A `SKIP` is not a pass; report it as "not verified".
 12. `bin/`, `obj/`, `out/`, `.vs/`, `.idea/`, `__pycache__/`, `ascom/*/bin/`, `ascom/*/obj/` and
     `firmware/cmake-build-*` are in `.gitignore`; never commit build artifacts.
-13. `origin/main` and `origin/motor-hardware-pwm` point at the same commit: that branch has no work yet.
 
 ## 9. Open TODOs
 
