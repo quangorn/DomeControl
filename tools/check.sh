@@ -68,6 +68,14 @@ stage_l0_conventions() {
 	[ $rc -ne 0 ] && echo "$out" | sed 's/^/      /'
 }
 
+stage_l0_csharp() {
+	local out
+	out=$(python3 tools/test_csharp_compat.py 2>&1)
+	local rc=$?
+	report "$([ $rc -eq 0 ] && echo PASS || echo FAIL)" "l0-csharp" "$(echo "$out" | tail -n 1)"
+	[ $rc -ne 0 ] && echo "$out" | sed 's/^/      /'
+}
+
 stage_l1() {
 	if [ ! -f "$BUILD_TEST/CMakeCache.txt" ]; then
 		cmake -S firmware/test -B "$BUILD_TEST" > /dev/null 2>&1
@@ -172,6 +180,7 @@ stage_csharp() {
 
 stage_l0_contract
 stage_l0_conventions
+stage_l0_csharp
 stage_l1
 if [ "$QUICK" -eq 0 ]; then
 	stage_l3

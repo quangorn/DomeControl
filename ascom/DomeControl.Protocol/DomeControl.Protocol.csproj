@@ -1,15 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <!-- The ASCOM driver project is an old-style net472 csproj and compiles these same files into
-         itself (see its <Compile Include="..\DomeControl.Protocol\**\*.cs" />), so the language
-         level has to stay one an old-style project compiles. -->
+    <!-- net8.0, not netstandard2.0: nothing outside ascom/ references the built assembly, the
+         ASCOM driver compiles these same files into itself (see its
+         <Compile Include="..\DomeControl.Protocol\**\*.cs" />), and a netstandard2.0 SDK project
+         carries an implicit PackageReference on NETStandard.Library, which cannot be restored
+         without a writable NuGet cache and a network. net8.0 resolves its reference assemblies
+         from the SDK's targeting packs, so the whole C# stage builds offline (AGENTS.md §3). -->
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- The driver is an old-style net472 csproj, so the language level stays one that project
+         compiles, and the API surface stays one .NET Framework 4.7.2 has. The second half of
+         that is a grep guard now, not something the compiler enforces:
+         tools/test_csharp_compat.py. -->
     <LangVersion>7.3</LangVersion>
     <AssemblyName>DomeControl.Protocol</AssemblyName>
     <RootNamespace>DomeControl.Protocol</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- There are no packages here, so NuGet has nothing to audit; without this it fetches
+         vulnerability data into ~/.local/share/NuGet/http-cache on every restore, which needs a
+         writable home directory and turns the sandbox denial into error NU1900. -->
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
 </Project>

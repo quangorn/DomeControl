@@ -7,6 +7,8 @@
     <RootNamespace>DomeControl.Protocol.Tests</RootNamespace>
     <AssemblyName>DomeControl.Protocol.Tests</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- See the comment in ../DomeControl.Protocol.csproj: no packages, no audit, no network. -->
+    <NuGetAudit>false</NuGetAudit>
     <!-- No NuGet packages on purpose: `dotnet run` must work offline, so this is a console runner
          with its own Assert rather than a test framework (AGENTS.md §6). -->
   </PropertyGroup>

@@ -97,7 +97,9 @@
     <!-- The protocol layer is compiled into the driver from its own sources rather than referenced
          as a built assembly: this is an old-style net472 csproj, and this keeps the Visual Studio
          solution building with no new project and no prebuilt DLL. The same sources build into
-         ascom/DomeControl.Protocol (netstandard2.0) for the tests, which run on Linux. -->
+         ascom/DomeControl.Protocol (net8.0) for the host checks, which run on Linux; nothing
+         references that assembly, so its target framework is a host-build detail, but its sources
+         must stay C# 7.3 and .NET Framework 4.7.2 compatible. -->
     <Compile Include="..\DomeControl.Protocol\**\*.cs">
       <Link>Protocol\%(Filename)%(Extension)</Link>
     </Compile>
