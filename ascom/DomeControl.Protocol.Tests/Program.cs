@@ -7,31 +7,57 @@ namespace DomeControl.Protocol.Tests
     /// Console runner for the protocol checks. No test framework on purpose: `dotnet build` has to
     /// work with no network and no NuGet restore, because this is the only C# check that can run
     /// without Windows (AGENTS.md §6). Exit code 0 when nothing failed.
+    ///
+    /// A check that cannot run here reports SKIP. A skipped check has verified nothing, so it is
+    /// never counted as a pass.
     /// </summary>
     internal static class Program
     {
         private static int Main()
         {
-            List<(string Name, Action Body)> checks = new List<(string, Action)>(UnitChecks.All());
+            var checks = new List<(string Name, Action Body)>(UnitChecks.All());
+            checks.AddRange(E2EChecks.All());
 
             int failures = 0;
-            foreach ((string name, Action body) in checks)
+            int skipped = 0;
+            try
             {
-                try
+                foreach ((string name, Action body) in checks)
                 {
-                    body();
-                    Console.WriteLine("  PASS  " + name);
+                    try
+                    {
+                        body();
+                        Console.WriteLine("  PASS  " + name);
+                    }
+                    catch (SkippedException e)
+                    {
+                        skipped++;
+                        Console.WriteLine("  SKIP  " + name + " -- " + e.Message);
+                    }
+                    catch (Exception e)
+                    {
+                        failures++;
+                        Console.WriteLine("  FAIL  " + name + " -- " + e.Message);
+                    }
                 }
-                catch (Exception e)
-                {
-                    failures++;
-                    Console.WriteLine("  FAIL  " + name + " -- " + e.Message);
-                }
+            }
+            finally
+            {
+                E2EChecks.Shutdown();
             }
 
             Console.WriteLine();
-            Console.WriteLine(string.Format("{0} checks, {1} failures", Assert.Checks, failures));
-            return failures > 0 ? 1 : 0;
+            Console.WriteLine(string.Format("{0} checks, {1} failures, {2} skipped",
+                                           Assert.Checks, failures, skipped));
+            if (failures > 0)
+            {
+                return 1;
+            }
+            if (skipped > 0)
+            {
+                Console.WriteLine("skipped checks verified nothing; do not report their subject as verified.");
+            }
+            return 0;
         }
     }
 }

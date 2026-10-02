@@ -6,6 +6,7 @@
  *
  *   harness <firmware.elf>            the bridge is a pty (uart_pty), announced as `uart pty <path>`
  *   harness --udp <firmware.elf>      the bridge is the built-in UDP bridge, `uart udp <port>`
+ *   harness --tcp <firmware.elf>      the bridge is the built-in TCP listener, `uart tcp <port>`
  *
  * The pty comes from libsimavrparts, but it needs /dev/ptmx, which sandboxes usually deny; the
  * built-in UDP bridge has no such dependency. `uart_udp` from libsimavrparts is *not* used: it only
@@ -57,6 +58,7 @@
 #define INPUT_MAX 256
 #define BRIDGE_RING 4096
 #define BRIDGE_PORT 4321
+#define BRIDGE_PORT_TCP 4322
 #define MCU_FREQUENCY 12000000UL
 /* ATmega8 data-space address of UCSRA, used only by the `reg` command and the bridge bootstrap */
 #define UCSRA_ADDRESS 0x2b
@@ -69,6 +71,8 @@ static const char *transport = "pty";
 static int bridgeSocket = -1;
 static struct sockaddr_in bridgePeer;
 static bool bridgeHavePeer;
+/* built-in TCP bridge: the listening socket in bridgeSocket, the client in bridgeClient */
+static int bridgeClient = -1;
 static uint8_t ring[BRIDGE_RING];
 static size_t ringRead, ringWrite;
 static bool uartHasRoom;
@@ -163,8 +167,10 @@ static void flushToAvr(void) {
 static void uartOutputHook(struct avr_irq_t *irq, uint32_t value, void *param) {
 	(void)irq;
 	(void)param;
-	if (bridgeSocket >= 0 && bridgeHavePeer) {
-		uint8_t byte = (uint8_t)value;
+	uint8_t byte = (uint8_t)value;
+	if (bridgeClient >= 0) {
+		send(bridgeClient, &byte, 1, 0);
+	} else if (bridgeSocket >= 0 && bridgeHavePeer) {
 		sendto(bridgeSocket, &byte, 1, 0, (struct sockaddr *)&bridgePeer, sizeof(bridgePeer));
 	}
 }
@@ -214,6 +220,30 @@ static void bridgeInitUdp(void) {
 	reply("uart udp %d", BRIDGE_PORT);
 }
 
+static void bridgeInitTcp(void) {
+	struct sockaddr_in address;
+	memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	address.sin_port = htons(BRIDGE_PORT_TCP);
+
+	bridgeSocket = socket(AF_INET, SOCK_STREAM, 0);
+	/* SO_REUSEADDR: a connection accepted by the previous run leaves the port in TIME_WAIT, and
+	 * without this the next run cannot bind it. Every rerun of the checks binds the same port. */
+	if (bridgeSocket >= 0) {
+		int reuse = 1;
+		setsockopt(bridgeSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+	}
+	if (bridgeSocket < 0 ||
+	    bind(bridgeSocket, (struct sockaddr *)&address, sizeof(address)) != 0 ||
+	    listen(bridgeSocket, 1) != 0) {
+		fprintf(stderr, "cannot listen on TCP %d: %s\n", BRIDGE_PORT_TCP, strerror(errno));
+		exit(2);
+	}
+	fcntl(bridgeSocket, F_SETFL, fcntl(bridgeSocket, F_GETFL, 0) | O_NONBLOCK);
+	reply("uart tcp %d", BRIDGE_PORT_TCP);
+}
+
 static void bridgeInitPty(void) {
 	uart_pty_init(avr, &uartPty);
 	uart_pty_connect(&uartPty, '0');
@@ -228,6 +258,30 @@ static void bridgeInitPty(void) {
 static void bridgePoll(void) {
 	if (bridgeSocket < 0) {
 		return;
+	}
+	if (bridgeClient >= 0 || strcmp(transport, "tcp") == 0) {
+		/* TCP: accept the first client, then treat the stream as the byte source. One client at a
+		 * time is enough: the protocol is a request/response lock-step over a single command
+		 * buffer, and a second connection would interleave bytes into the same ring. */
+		if (bridgeClient < 0) {
+			int client = accept(bridgeSocket, NULL, NULL);
+			if (client < 0) {
+				return;
+			}
+			fcntl(client, F_SETFL, fcntl(client, F_GETFL, 0) | O_NONBLOCK);
+			bridgeClient = client;
+		}
+		for (;;) {
+			uint8_t buffer[512];
+			ssize_t count = recv(bridgeClient, buffer, sizeof(buffer), MSG_DONTWAIT);
+			if (count <= 0) {
+				return;
+			}
+			for (ssize_t i = 0; i < count; i++) {
+				ringPush(buffer[i]);
+			}
+			flushToAvr();
+		}
 	}
 	for (;;) {
 		uint8_t buffer[512];
@@ -380,12 +434,14 @@ int main(int argc, char **argv) {
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--udp") == 0) {
 			transport = "udp";
+		} else if (strcmp(argv[i], "--tcp") == 0) {
+			transport = "tcp";
 		} else {
 			firmwarePath = argv[i];
 		}
 	}
 	if (!firmwarePath) {
-		fprintf(stderr, "usage: %s [--udp] <firmware.elf>\n", argv[0]);
+		fprintf(stderr, "usage: %s [--udp|--tcp] <firmware.elf>\n", argv[0]);
 		return 2;
 	}
 
@@ -409,6 +465,8 @@ int main(int argc, char **argv) {
 
 	if (strcmp(transport, "udp") == 0) {
 		bridgeInitUdp();
+	} else if (strcmp(transport, "tcp") == 0) {
+		bridgeInitTcp();
 	} else {
 		bridgeInitPty();
 	}
